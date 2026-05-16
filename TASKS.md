@@ -5,14 +5,14 @@
 
 ---
 
-## [ ] Example: Scaffold the project structure
+## [x] Example: Scaffold the project structure
 **Priority:** high
 **Type:** code
 **Context:** Create the initial folder layout, package.json, and base configuration files for the cowork project.
 
 ---
 
-## [ ] Example: Write unit tests for core utilities
+## [x] Example: Write unit tests for core utilities
 **Priority:** medium
 **Type:** test
 **Context:** Add tests for any utility functions created during scaffolding. Target 80%+ coverage.
