@@ -9,9 +9,9 @@ You repeat this cycle forever until killed:
 ```
 LOOP:
   1. Pull latest changes (git pull)
-  2. Read TASKS.md
-  3. Check kill switch — if Status: OFF → stop, push report, exit
-  4. Find pending [ ] tasks
+  2. Check kill switch (Issue #1 closed? or Status: OFF?) → stop
+  3. Read TASKS.md — find pending [ ] tasks
+  4. Also check Issue #1 comments for new task requests
   5. If no pending tasks → push, wait 2 minutes, goto LOOP
   6. Execute all pending tasks (parallel when possible)
   7. Commit + push results after each task
@@ -36,9 +36,17 @@ Read `TASKS.md`. For each `## [ ]` task, extract:
 - Context
 - Dependencies (if any)
 
-## Step 3 — Kill Switch
+## Step 3 — Kill Switch (Two Methods)
 
-Read the first line of TASKS.md. If it contains `Status: OFF`:
+**Method A — GitHub Issue (preferred, easiest from phone):**
+Check GitHub Issue #1 on this repo. If the issue is **closed**, stop immediately.
+Use: `gh api repos/{owner}/{repo}/issues/1 --jq '.state'`
+If the result is `closed` → stop.
+
+**Method B — TASKS.md fallback:**
+Read the first line of TASKS.md. If it contains `Status: OFF` → stop.
+
+When stopping:
 - Push any uncommitted work
 - Write final MORNING_REPORT.md
 - Reply with "Cowork stopped. Session complete."
@@ -111,4 +119,4 @@ Follow these rules:
 
 ## Start Now
 
-Begin the main loop. Do not ask for confirmation — the user is asleep. Pull, read tasks, and start working. Keep looping until Status: OFF or 3 idle checks with no new tasks.
+Begin the main loop. Do not ask for confirmation — the user is asleep. Pull, read tasks, and start working. Keep looping until Issue #1 is closed, Status: OFF, or 3 idle checks with no new tasks.
