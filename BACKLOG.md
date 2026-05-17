@@ -36,3 +36,24 @@
 **Depends on:** Add a task serializer module, Add an input validation module
 
 ---
+
+## [x] Add an execution runner module
+**Priority:** high
+**Type:** code
+**Context:** Create src/runner.ts that manages task execution state. Takes ExecutionBatch[] from the scheduler, tracks state transitions (pending → running → completed | failed), provides runBatch(batch, executor) where executor is a callback. Returns SessionResult when done.
+
+---
+
+## [x] Add a structured logger module
+**Priority:** medium
+**Type:** code
+**Context:** Create src/logger.ts with JSON-lines structured logger. Write to configurable file path. Support log levels (debug, info, warn, error). Each entry is JSON with timestamp, level, message, data.
+
+---
+
+## [x] Add a configuration loader module
+**Priority:** medium
+**Type:** code
+**Context:** Create src/config.ts that loads from .coworkrc.json with defaults. Config: tasksFile, logFile, logLevel, coverageThreshold, maxFileLines, maxFunctionLines.
+
+---

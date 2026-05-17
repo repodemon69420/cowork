@@ -4,6 +4,23 @@
 
 ---
 
+## Iteration 4 — Add runner, logger, and config modules
+**Status:** PASSED
+**Tasks:** Add an execution runner module, Add a structured logger module, Add a configuration loader module
+**Tests:** 152 pass, 0 fail (36 new tests added)
+**Coverage:** 88%+ overall, all new modules ≥80%
+**Quality Gate:** PASSED (all criteria met)
+
+**Changes:**
+- Created src/runner.ts (74 lines) — executePlan() manages batch execution with parallel/sequential modes, state tracking
+- Created src/runner.test.ts (11 tests) — mock executors, concurrency verification, immutability
+- Created src/logger.ts (70 lines) — createLogger() factory with JSON-lines output, level filtering, custom writers
+- Created src/logger.test.ts (13 tests) — level filtering, entry format, custom writer injection
+- Created src/config.ts (124 lines) — loadConfig() with .coworkrc.json loading, defaults, validation, path resolution
+- Created src/config.test.ts (12 tests) — temp dir loading, partial merges, invalid JSON, validation
+
+---
+
 ## Iteration 3 — Add serializer, validator, and CLI modules
 **Status:** PASSED
 **Tasks:** Add a task serializer module, Add an input validation module, Add a CLI entry point

@@ -5,3 +5,6 @@ export { generateReport, formatTaskSection } from './reporter.js';
 export { serializeTasks, updateTaskStatus } from './serializer.js';
 export { validateTasks, ValidationSeverity, ValidationIssue, ValidationResult } from './validator.js';
 export { formatValidationIssues, formatExecutionPlan, formatSummary } from './format.js';
+export { executePlan, TaskExecutor, RunnerProgress } from './runner.js';
+export { createLogger, LogLevel, LogEntry, LoggerOptions, Logger } from './logger.js';
+export { Config, DEFAULT_CONFIG, loadConfig, resolveConfigPaths } from './config.js';
