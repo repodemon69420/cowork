@@ -69,5 +69,8 @@ Follow these rules:
 - Mark failed tasks as `## [!]` in TASKS.md with an error note
 - Always generate the morning report even if some tasks failed
 
+## Kill Switch
+Read the first line of TASKS.md. If it contains `Status: OFF`, stop immediately — do not execute any tasks. Reply with "Cowork is OFF. Set Status: ON in TASKS.md to enable." and exit.
+
 ## Start Now
-Read TASKS.md, build the plan, and begin execution. Do not ask for confirmation — the user is asleep.
+Read TASKS.md, check the kill switch, build the plan, and begin execution. Do not ask for confirmation — the user is asleep.
