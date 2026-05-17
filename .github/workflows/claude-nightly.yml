@@ -1,0 +1,60 @@
+name: Claude Overnight
+
+on:
+  schedule:
+    - cron: '0 2 * * *'   # Runs 2am UTC every night
+  workflow_dispatch:        # Adds a "Run manually" button
+
+jobs:
+  run-claude:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project: [cowork]  # Add more repos here: [cowork, my-app, my-api]
+
+    steps:
+      - name: Checkout project repo
+        uses: actions/checkout@v4
+        with:
+          repository: repodemon69420/${{ matrix.project }}
+          token: ${{ secrets.CROSS_REPO_TOKEN }}
+          fetch-depth: 0
+
+      - name: Determine iteration number
+        id: iter
+        run: |
+          LATEST=$(git branch -r | grep 'claude/iter-' | sed 's/.*iter-//' | sort -n | tail -1)
+          NEXT=$((${LATEST:-0} + 1))
+          echo "number=$NEXT" >> "$GITHUB_OUTPUT"
+          echo "branch=claude/iter-$NEXT" >> "$GITHUB_OUTPUT"
+          OLDEST=$((NEXT - 3))
+          if [ $OLDEST -gt 0 ]; then
+            git push origin --delete "claude/iter-$OLDEST" 2>/dev/null || true
+          fi
+
+      - name: Create iteration branch
+        run: |
+          git checkout -b ${{ steps.iter.outputs.branch }}
+          git push -u origin ${{ steps.iter.outputs.branch }}
+
+      - name: Run Claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          prompt: |
+            You are running overnight iteration ${{ steps.iter.outputs.number }}.
+            Read .claude/TASKS.md and complete all pending [ ] tasks.
+            Use TDD - write tests first, then implement.
+            Commit after each completed task.
+            Mark completed tasks as [x] in TASKS.md.
+            When done, write a summary to MORNING_REPORT.md.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Open PR
+        run: |
+          gh pr create \
+            --title "Overnight iter-${{ steps.iter.outputs.number }}" \
+            --body-file MORNING_REPORT.md \
+            --base main \
+            --head ${{ steps.iter.outputs.branch }}
+        env:
+          GH_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
