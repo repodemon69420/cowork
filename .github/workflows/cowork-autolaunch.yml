@@ -5,81 +5,89 @@ on:
     types: [opened, reopened]
 
 jobs:
-  start-cowork:
-    # Only trigger on the ON/OFF switch issue
+  # ──────────────────────────────────────────────────
+  # OPTION A: Full auto (needs ANTHROPIC_API_KEY secret)
+  # Uncomment this job once you have an API key.
+  # ──────────────────────────────────────────────────
+  # auto-run:
+  #   if: github.event.issue.number == 1 && github.event.action == 'reopened'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
+  #         token: ${{ secrets.CROSS_REPO_TOKEN }}
+  #
+  #     - name: Configure git
+  #       run: |
+  #         git config user.name "Claude (cowork)"
+  #         git config user.email "cowork@users.noreply.github.com"
+  #
+  #     - name: Determine iteration
+  #       id: iter
+  #       run: |
+  #         LATEST=$(git branch -r | grep 'claude/iter-' | sed 's/.*iter-//' | sort -n | tail -1)
+  #         NEXT=$((${LATEST:-0} + 1))
+  #         echo "number=$NEXT" >> "$GITHUB_OUTPUT"
+  #         echo "branch=claude/iter-$NEXT" >> "$GITHUB_OUTPUT"
+  #         OLDEST=$((NEXT - 3))
+  #         if [ $OLDEST -gt 0 ]; then
+  #           git push origin --delete "claude/iter-$OLDEST" 2>/dev/null || true
+  #         fi
+  #
+  #     - name: Create iteration branch
+  #       run: |
+  #         git checkout -b ${{ steps.iter.outputs.branch }}
+  #         git push -u origin ${{ steps.iter.outputs.branch }}
+  #
+  #     - uses: anthropics/claude-code-action@v1
+  #       with:
+  #         prompt: |
+  #           Read .claude/agents/orchestrator.md and begin iteration ${{ steps.iter.outputs.number }}.
+  #           Work on branch ${{ steps.iter.outputs.branch }}.
+  #         anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+  #         model: claude-sonnet-4-20250514
+  #         timeout_minutes: 60
+  #       env:
+  #         GH_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
+  #
+  #     - name: Open PR
+  #       if: always()
+  #       run: |
+  #         gh pr create \
+  #           --title "Overnight iter-${{ steps.iter.outputs.number }}" \
+  #           --body-file MORNING_REPORT.md \
+  #           --base main \
+  #           --head ${{ steps.iter.outputs.branch }} || true
+  #       env:
+  #         GH_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
+
+  # ──────────────────────────────────────────────────
+  # OPTION B: Notify-and-link (free, no API key)
+  # Posts a comment with a direct launch link.
+  # You tap the link on your phone → session starts.
+  # ──────────────────────────────────────────────────
+  notify:
     if: github.event.issue.number == 1 && github.event.action == 'reopened'
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.CROSS_REPO_TOKEN }}
-
-      - name: Configure git
+      - name: Post launch link
         run: |
-          git config user.name "Claude (cowork)"
-          git config user.email "cowork@users.noreply.github.com"
+          gh issue comment 1 --body "$(cat <<'MSG'
+          ## Cowork is ON
 
-      - name: Determine iteration
-        id: iter
-        run: |
-          LATEST=$(git branch -r | grep 'claude/iter-' | sed 's/.*iter-//' | sort -n | tail -1)
-          NEXT=$((${LATEST:-0} + 1))
-          echo "number=$NEXT" >> "$GITHUB_OUTPUT"
-          echo "branch=claude/iter-$NEXT" >> "$GITHUB_OUTPUT"
-          # Delete oldest — keep only 3 rolling branches
-          OLDEST=$((NEXT - 3))
-          if [ $OLDEST -gt 0 ]; then
-            git push origin --delete "claude/iter-$OLDEST" 2>/dev/null || true
-          fi
+          Tap the link below to start a Claude Code session:
 
-      - name: Create iteration branch
-        run: |
-          git checkout -b ${{ steps.iter.outputs.branch }}
-          git push -u origin ${{ steps.iter.outputs.branch }}
+          **[Launch Claude Code on cowork](https://claude.ai/code?repo=repodemon69420/cowork)**
 
-      - name: Run Claude Orchestrator
-        uses: anthropics/claude-code-action@v1
-        with:
-          prompt: |
-            You are the cowork orchestrator, iteration ${{ steps.iter.outputs.number }}.
-            Read .claude/agents/orchestrator.md for your full instructions.
+          Once it opens, paste this:
 
-            IMPORTANT overrides for this environment:
-            - You are on branch ${{ steps.iter.outputs.branch }} — commit and push here, NOT main
-            - To check the kill switch: use `gh api repos/${{ github.repository }}/issues/1 --jq '.state'`
-            - If the issue is closed, stop immediately
-            - Run the product-mind agent when the backlog is empty to generate new tasks
-            - Run QA after every task
-            - Push after every commit
+          ```
+          Read .claude/agents/orchestrator.md and begin. I am away.
+          ```
 
-            Begin now. The user is away.
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          model: claude-sonnet-4-20250514
-          timeout_minutes: 60
+          To stop: close this issue.
+          MSG
+          )"
         env:
-          GH_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
-
-      - name: Open PR with morning report
-        if: always()
-        run: |
-          if [ -f MORNING_REPORT.md ]; then
-            BODY=$(cat MORNING_REPORT.md)
-          else
-            BODY="Session ended without a full report."
-          fi
-          gh pr create \
-            --title "Overnight iter-${{ steps.iter.outputs.number }}" \
-            --body "$BODY" \
-            --base main \
-            --head ${{ steps.iter.outputs.branch }} || true
-        env:
-          GH_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
-
-      - name: Comment status on Issue #1
-        if: always()
-        run: |
-          gh issue comment 1 --body "Iteration ${{ steps.iter.outputs.number }} complete. PR opened on branch \`${{ steps.iter.outputs.branch }}\`."
-        env:
-          GH_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
