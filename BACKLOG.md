@@ -57,3 +57,24 @@
 **Context:** Create src/config.ts that loads from .coworkrc.json with defaults. Config: tasksFile, logFile, logLevel, coverageThreshold, maxFileLines, maxFunctionLines.
 
 ---
+
+## [x] Add an orchestrator module that coordinates the full pipeline
+**Priority:** high
+**Type:** code
+**Context:** Coordinates loadConfig → parse → validate → schedule → run → report → update.
+
+---
+
+## [x] Add end-to-end pipeline integration tests with real file I/O
+**Priority:** medium
+**Type:** test
+**Context:** Full pipeline tests in temp directories with real file operations.
+
+---
+
+## [x] Add a shell executor for running system commands as tasks
+**Priority:** medium
+**Type:** code
+**Context:** TaskExecutor implementation that runs shell commands via child_process.
+
+---

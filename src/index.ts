@@ -8,3 +8,5 @@ export { formatValidationIssues, formatExecutionPlan, formatSummary } from './fo
 export { executePlan, TaskExecutor, RunnerProgress } from './runner.js';
 export { createLogger, LogLevel, LogEntry, LoggerOptions, Logger } from './logger.js';
 export { Config, DEFAULT_CONFIG, loadConfig, resolveConfigPaths } from './config.js';
+export { createShellExecutor, ShellExecutorOptions } from './shell-executor.js';
+export { orchestrate, OrchestrateOptions, OrchestrateResult } from './orchestrator.js';

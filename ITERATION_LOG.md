@@ -4,6 +4,22 @@
 
 ---
 
+## Iteration 5 — Add orchestrator, shell executor, and E2E tests
+**Status:** PASSED
+**Tasks:** Add orchestrator module, Add shell executor, Add end-to-end integration tests
+**Tests:** 183 pass, 0 fail (31 new tests added)
+**Coverage:** 89.86% overall, all new modules ≥80%
+**Quality Gate:** PASSED (all criteria met)
+
+**Changes:**
+- Created src/orchestrator.ts (134 lines) — orchestrate() coordinates full pipeline: config → parse → validate → schedule → run → report → update
+- Created src/orchestrator.test.ts (11 tests) — real file I/O in temp dirs, mock executors, progress callbacks
+- Created src/shell-executor.ts (45 lines) — createShellExecutor() runs task.context as shell commands via child_process
+- Created src/shell-executor.test.ts (12 tests) — real shell commands, timeout, env vars, cwd
+- Created src/e2e.test.ts (8 tests) — full pipeline integration with real file I/O in temp directories
+
+---
+
 ## Iteration 4 — Add runner, logger, and config modules
 **Status:** PASSED
 **Tasks:** Add an execution runner module, Add a structured logger module, Add a configuration loader module

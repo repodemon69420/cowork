@@ -65,6 +65,27 @@
 
 ---
 
+## [x] Add an orchestrator module that coordinates the full pipeline
+**Priority:** high
+**Type:** code
+**Context:** Create src/orchestrator.ts that wires the full workflow: (1) loadConfig → (2) read TASKS.md from config.tasksFile → (3) parseTasksFile → (4) validateTasks (stop if errors) → (5) buildExecutionPlan → (6) executePlan with a provided executor → (7) write morning report using generateReport → (8) update TASKS.md with new statuses using updateTaskStatus. Export an async function orchestrate(options) that takes: executor (TaskExecutor), cwd (optional string), onProgress (optional callback). Returns the SessionResult. Write tests using mock executors and temp files.
+
+---
+
+## [x] Add end-to-end pipeline integration tests with real file I/O
+**Priority:** medium
+**Type:** test
+**Context:** Create src/e2e.test.ts that tests the full pipeline with real file operations in temp directories. Tests should: (1) create a temp dir with a TASKS.md file, (2) run the orchestrator with a mock executor, (3) verify TASKS.md was updated (statuses changed), (4) verify a report was generated. Test error paths: invalid TASKS.md, circular deps, executor failures. Use node:os tmpdir + node:fs mkdtempSync for isolation.
+
+---
+
+## [x] Add a shell executor for running system commands as tasks
+**Priority:** medium
+**Type:** code
+**Context:** Create src/shell-executor.ts that implements the TaskExecutor interface by running shell commands. It should: (1) export createShellExecutor(options) that returns a TaskExecutor, (2) use node:child_process execAsync to run the task's context field as a shell command, (3) capture stdout/stderr, (4) return success:true if exit code is 0, else success:false with error containing stderr. Options: timeout (default 60000ms), shell (default '/bin/sh'), env (optional extra env vars). Write tests using echo/true/false commands.
+
+---
+
 <!-- INSTRUCTIONS:
   Copy the template below for each new task.
   Delete or comment out completed tasks.
