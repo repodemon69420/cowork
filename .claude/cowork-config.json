@@ -1,63 +1,17 @@
 {
-  "version": "1.0.0",
+  "repo": {
+    "owner": "repodemon69420",
+    "name": "cowork",
+    "url": "https://github.com/repodemon69420/cowork",
+    "localPath": "~/projects/cowork"
+  },
   "orchestrator": {
-    "enabled": true,
-    "maxIterations": 10,
-    "idleCheckLimit": 3,
-    "idleWaitSeconds": 120,
-    "branchPrefix": "claude/iter-",
-    "keepBranches": 3
+    "triggerId": "cowork-orchestrator",
+    "taskFile": "TASKS.md",
+    "outputFile": "MORNING_REPORT.md"
   },
-  "killSwitch": {
-    "type": "github-issue",
-    "issueNumber": 1,
-    "fallbackFile": "TASKS.md",
-    "fallbackStatus": "Status: OFF"
-  },
-  "agents": {
-    "worker": {
-      "enabled": true,
-      "maxParallel": 4,
-      "timeout": 3600
-    },
-    "qa": {
-      "enabled": true,
-      "runAfterEachTask": true,
-      "minCoverage": 80,
-      "criticalOnly": false
-    },
-    "reviewer": {
-      "enabled": true,
-      "maxFixCycles": 3,
-      "requireApproval": true
-    },
-    "reporter": {
-      "enabled": true,
-      "updateFile": "MORNING_REPORT.md"
-    },
-    "productMind": {
-      "enabled": true,
-      "minTasksToGenerate": 3,
-      "maxTasksToGenerate": 5
-    }
-  },
-  "git": {
-    "rebaseOnPull": true,
-    "autoCommit": true,
-    "commitPrefix": "feat: [cowork]",
-    "pushToOrigin": true
-  },
-  "files": {
-    "taskQueue": "TASKS.md",
-    "morningReport": "MORNING_REPORT.md",
-    "qaReport": "QA_REPORT.md",
-    "logDirectory": "logs/",
-    "agentsDirectory": ".claude/agents/"
-  },
-  "logging": {
-    "level": "info",
-    "file": "logs/cowork.log",
-    "maxSize": "10M",
-    "maxFiles": 5
+  "phone": {
+    "toggleIssueNumber": 1,
+    "toggleIssueTitle": "DEV TEAM ON/OFF SWITCH"
   }
 }
