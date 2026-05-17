@@ -22,5 +22,8 @@
 9. **Three-color DFS for cycle detection**: Iterative DFS with white/gray/black marking reliably detects all cycles in dependency graphs. Normalize cycle keys (rotate to lexicographic minimum) to avoid duplicate reports.
 10. **Parallel batch execution**: When tasks have no dependencies between them, spawn worker agents simultaneously. Serializer + validator were independent and completed in parallel successfully.
 11. **Lint early and fix immediately**: Running eslint after implementation catches unused imports and shadowed variables. Fix them in the same iteration rather than letting them accumulate across sessions.
+12. **Mock executors for runner tests**: Use simple async callbacks that return `{success: true/false}` instead of real shell execution. Keeps tests fast (<300ms for runner suite) and deterministic.
+13. **Temp directories for integration tests**: `mkdtempSync(join(tmpdir(), 'prefix-'))` provides full isolation for tests that read/write files. Clean up with `rmSync(dir, {recursive: true})` in afterEach.
+14. **Orchestrator as coordinator, not logic owner**: The orchestrate() function should call existing modules, not re-implement their logic. Keeps it thin (~134 lines) and makes each piece independently testable.
 
 ---
