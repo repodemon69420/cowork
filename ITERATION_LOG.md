@@ -4,6 +4,20 @@
 
 ---
 
+## Iteration 3 — Fix typecheck and lint errors
+**Status:** PASSED
+**Task:** Fix TypeScript type-checking errors and ESLint lint errors
+**Tests:** 62 pass, 0 fail
+**Coverage:** 100% on all logic modules
+**Quality Gate:** PASSED (all criteria met)
+
+**Changes:**
+- Added `@types/node` to devDependencies (fixes `node:fs`, `node:path`, `node:url` type errors)
+- Removed unused `formatTaskSection` import from integration.test.ts (fixes ESLint no-unused-vars error)
+- All three checks now pass: `npm run typecheck`, `npm run lint`, `npm run test`
+
+---
+
 ## Iteration 2 — Write unit tests for core utilities
 **Status:** PASSED
 **Task:** Write unit tests for core utilities

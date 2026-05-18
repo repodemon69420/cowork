@@ -14,3 +14,11 @@
 6. **Real file system tests**: Reading actual project files (TASKS.md) in integration tests catches format drift between parser assumptions and actual file format.
 
 ---
+
+## Session 2026-05-18
+
+7. **Always install `@types/node`**: Node.js projects using `node:` protocol imports (`node:fs`, `node:path`, `node:url`) need `@types/node` in devDependencies even when `skipLibCheck: true` is set — `skipLibCheck` only skips `.d.ts` files, not module resolution.
+8. **Run all quality scripts early**: Don't rely only on tests passing. Run `tsc --noEmit` and `eslint` in every iteration to catch type errors and lint issues before they accumulate.
+9. **Unused imports in test files**: When test files import a symbol for use in one test group but not others, import it only where needed (e.g., via dynamic `import()`) or remove it from the static import to satisfy lint rules.
+
+---
