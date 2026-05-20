@@ -14,3 +14,10 @@
 6. **Real file system tests**: Reading actual project files (TASKS.md) in integration tests catches format drift between parser assumptions and actual file format.
 
 ---
+
+## Session 2026-05-20
+
+7. **Empty backlog early exit**: When BACKLOG.md has no `[ ]` items, the orchestrator should immediately stop, write a health-check morning report, and push — no iterations needed. Avoids unnecessary churn.
+8. **Queue tasks before sleeping**: The orchestrator can only process what's in BACKLOG.md/TASKS.md. An empty queue means an idle session. Always add tasks before triggering overnight runs.
+
+---
