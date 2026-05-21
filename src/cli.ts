@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
 import { readFile } from 'node:fs/promises';
-import { runHandler, statusHandler, reportHandler, historyHandler } from './cli-handlers.js';
+import { runHandler, statusHandler, reportHandler, historyHandler, addHandler } from './cli-handlers.js';
 import { listSessionLogs, loadSessionLog } from './history.js';
 import { loadConfig, resolveConfig } from './config.js';
 import type { CoworkConfig } from './config.js';
+import type { TaskPriority, TaskType } from './types.js';
+
+const VALID_PRIORITIES: TaskPriority[] = ['high', 'medium', 'low'];
+const VALID_TYPES: TaskType[] = ['code', 'research', 'docs', 'refactor', 'test', 'design'];
 
 function printUsage(): void {
   const usage = `Usage: cowork <command> [options]
@@ -14,6 +18,7 @@ Commands:
   status   Print task status table
   report   Generate markdown report from session JSON
   history  Show session history log
+  add      Add a new task to the tasks file
 
 Options:
   --file <path>     Path to TASKS.md (default: ./TASKS.md)
@@ -163,6 +168,64 @@ async function main(): Promise<void> {
 
       const output = historyHandler(logs);
       console.log(output);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      console.error(`Error: ${message}`);
+      process.exit(1);
+    }
+  } else if (subcommand === 'add') {
+    const { values } = parseArgs({
+      args: subcommandArgs,
+      options: {
+        title: { type: 'string' },
+        priority: { type: 'string', default: 'medium' },
+        type: { type: 'string', default: 'code' },
+        context: { type: 'string', default: '' },
+        'depends-on': { type: 'string' },
+        file: { type: 'string' },
+      },
+      strict: true,
+    });
+
+    if (!values.title || values.title.trim() === '') {
+      console.error('Error: --title is required and must be non-empty');
+      process.exit(1);
+    }
+
+    const priority = values.priority as string;
+    if (!VALID_PRIORITIES.includes(priority as TaskPriority)) {
+      console.error(
+        `Error: Invalid priority '${priority}'. Valid options: ${VALID_PRIORITIES.join(', ')}`,
+      );
+      process.exit(1);
+    }
+
+    const type = values.type as string;
+    if (!VALID_TYPES.includes(type as TaskType)) {
+      console.error(
+        `Error: Invalid type '${type}'. Valid options: ${VALID_TYPES.join(', ')}`,
+      );
+      process.exit(1);
+    }
+
+    const dependsOn = values['depends-on']
+      ? values['depends-on'].split(',').map(s => s.trim()).filter(Boolean)
+      : undefined;
+
+    const cliOverrides = buildCliOverrides(values);
+    const config = resolveConfig(cliOverrides, fileConfig);
+    const filePath = config.tasksFile;
+
+    try {
+      const result = await addHandler({
+        title: values.title,
+        priority: priority as TaskPriority,
+        type: type as TaskType,
+        context: values.context ?? '',
+        dependsOn,
+        filePath,
+      });
+      console.log(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       console.error(`Error: ${message}`);

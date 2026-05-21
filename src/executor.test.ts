@@ -1,10 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import { TaskExecutor } from './executor.js';
-import { Task, ExecutionBatch, TaskRunResult } from './types.js';
+import { Task, ExecutionBatch, TaskRunResult, ProgressEvent } from './types.js';
 import { CoworkConfig, resolveConfig } from './config.js';
 import { parseTasksFileSimple } from './parser.js';
 import { buildExecutionPlan } from './scheduler.js';
 import { generateReport, generateJsonReport } from './reporter.js';
+import { createProgressFormatter } from './cli-handlers.js';
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -647,5 +648,211 @@ describe('TaskExecutor integration', () => {
 
     // generatedAt should be a valid ISO date string
     expect(new Date(parsed.generatedAt).toISOString()).toBe(parsed.generatedAt);
+  });
+});
+
+describe('Progress callbacks', () => {
+  it('batch-start event is emitted with correct batchIndex and taskCount', async () => {
+    const tasks = [makeTask({ title: 'A' }), makeTask({ title: 'B' })];
+    const batches: ExecutionBatch[] = [{ tasks, parallel: false }];
+    const runner = vi.fn().mockResolvedValue(successResult());
+    const events: ProgressEvent[] = [];
+
+    const executor = new TaskExecutor(makeConfig(), runner, (e) => events.push(e));
+    await executor.execute(batches);
+
+    const batchStartEvents = events.filter(e => e.type === 'batch-start');
+    expect(batchStartEvents).toHaveLength(1);
+    expect(batchStartEvents[0]).toEqual({
+      type: 'batch-start',
+      batchIndex: 0,
+      taskCount: 2,
+    });
+  });
+
+  it('task-start event is emitted before each task runs', async () => {
+    const tasks = [makeTask({ title: 'X' }), makeTask({ title: 'Y' })];
+    const batches: ExecutionBatch[] = [{ tasks, parallel: false }];
+    const runner = vi.fn().mockResolvedValue(successResult());
+    const events: ProgressEvent[] = [];
+
+    const executor = new TaskExecutor(makeConfig(), runner, (e) => events.push(e));
+    await executor.execute(batches);
+
+    const taskStartEvents = events.filter(e => e.type === 'task-start');
+    expect(taskStartEvents).toHaveLength(2);
+    expect(taskStartEvents[0]).toEqual({ type: 'task-start', batchIndex: 0, taskTitle: 'X' });
+    expect(taskStartEvents[1]).toEqual({ type: 'task-start', batchIndex: 0, taskTitle: 'Y' });
+  });
+
+  it('task-end event is emitted after each task with correct result', async () => {
+    const tasks = [makeTask({ title: 'Pass' }), makeTask({ title: 'Fail' })];
+    const batches: ExecutionBatch[] = [{ tasks, parallel: false }];
+    const runner = vi.fn().mockImplementation(async (task: Task) => {
+      if (task.title === 'Fail') return failResult('broke');
+      return successResult('ok');
+    });
+    const events: ProgressEvent[] = [];
+
+    const executor = new TaskExecutor(makeConfig(), runner, (e) => events.push(e));
+    await executor.execute(batches);
+
+    const taskEndEvents = events.filter(e => e.type === 'task-end');
+    expect(taskEndEvents).toHaveLength(2);
+
+    const passEnd = taskEndEvents.find(
+      e => e.type === 'task-end' && e.taskTitle === 'Pass',
+    );
+    expect(passEnd).toBeDefined();
+    if (passEnd && passEnd.type === 'task-end') {
+      expect(passEnd.result.success).toBe(true);
+    }
+
+    const failEnd = taskEndEvents.find(
+      e => e.type === 'task-end' && e.taskTitle === 'Fail',
+    );
+    expect(failEnd).toBeDefined();
+    if (failEnd && failEnd.type === 'task-end') {
+      expect(failEnd.result.success).toBe(false);
+      expect(failEnd.result.error).toBe('broke');
+    }
+  });
+
+  it('batch-end event is emitted after batch completes', async () => {
+    const tasks = [makeTask({ title: 'T' })];
+    const batches: ExecutionBatch[] = [{ tasks, parallel: false }];
+    const runner = vi.fn().mockResolvedValue(successResult());
+    const events: ProgressEvent[] = [];
+
+    const executor = new TaskExecutor(makeConfig(), runner, (e) => events.push(e));
+    await executor.execute(batches);
+
+    const batchEndEvents = events.filter(e => e.type === 'batch-end');
+    expect(batchEndEvents).toHaveLength(1);
+    expect(batchEndEvents[0]).toEqual({ type: 'batch-end', batchIndex: 0 });
+  });
+
+  it('session-end event is emitted with full SessionResult', async () => {
+    const tasks = [makeTask({ title: 'Done' })];
+    const batches: ExecutionBatch[] = [{ tasks, parallel: false }];
+    const runner = vi.fn().mockResolvedValue(successResult());
+    const events: ProgressEvent[] = [];
+
+    const executor = new TaskExecutor(makeConfig(), runner, (e) => events.push(e));
+    await executor.execute(batches);
+
+    const sessionEndEvents = events.filter(e => e.type === 'session-end');
+    expect(sessionEndEvents).toHaveLength(1);
+    if (sessionEndEvents[0].type === 'session-end') {
+      const result = sessionEndEvents[0].result;
+      expect(result.completed).toHaveLength(1);
+      expect(result.completed[0].title).toBe('Done');
+      expect(result.failed).toHaveLength(0);
+      expect(result.skipped).toHaveLength(0);
+      expect(result.startTime).toBeInstanceOf(Date);
+      expect(result.endTime).toBeInstanceOf(Date);
+    }
+  });
+
+  it('events fire in correct order for multi-batch plan', async () => {
+    const batch1 = [makeTask({ title: 'B1-T1' })];
+    const batch2 = [makeTask({ title: 'B2-T1' }), makeTask({ title: 'B2-T2' })];
+    const batches: ExecutionBatch[] = [
+      { tasks: batch1, parallel: false },
+      { tasks: batch2, parallel: false },
+    ];
+    const runner = vi.fn().mockResolvedValue(successResult());
+    const events: ProgressEvent[] = [];
+
+    const executor = new TaskExecutor(makeConfig(), runner, (e) => events.push(e));
+    await executor.execute(batches);
+
+    const types = events.map(e => e.type);
+    expect(types).toEqual([
+      'batch-start',
+      'task-start',
+      'task-end',
+      'batch-end',
+      'batch-start',
+      'task-start',
+      'task-end',
+      'task-start',
+      'task-end',
+      'batch-end',
+      'session-end',
+    ]);
+
+    // Verify batchIndex values
+    const batchStartEvents = events.filter(e => e.type === 'batch-start');
+    expect(batchStartEvents[0]).toMatchObject({ batchIndex: 0, taskCount: 1 });
+    expect(batchStartEvents[1]).toMatchObject({ batchIndex: 1, taskCount: 2 });
+  });
+
+  it('onProgress being undefined causes no errors', async () => {
+    const tasks = [makeTask({ title: 'No callback' })];
+    const batches: ExecutionBatch[] = [{ tasks, parallel: false }];
+    const runner = vi.fn().mockResolvedValue(successResult());
+
+    const executor = new TaskExecutor(makeConfig(), runner);
+    const result = await executor.execute(batches);
+
+    expect(result.completed).toHaveLength(1);
+    expect(result.completed[0].title).toBe('No callback');
+  });
+
+  it('progress formatter produces expected strings for success/failure', () => {
+    const formatter = createProgressFormatter();
+
+    const batchStartStr = formatter({
+      type: 'batch-start',
+      batchIndex: 0,
+      taskCount: 4,
+    });
+    expect(batchStartStr).toBe('[batch 1] Starting 4 tasks...');
+
+    const taskStartStr = formatter({
+      type: 'task-start',
+      batchIndex: 0,
+      taskTitle: 'Build the parser',
+    });
+    expect(taskStartStr).toBe('  Starting: Build the parser');
+
+    const taskEndSuccessStr = formatter({
+      type: 'task-end',
+      batchIndex: 0,
+      taskTitle: 'Build the parser',
+      result: { success: true, output: 'done', durationMs: 1200 },
+    });
+    expect(taskEndSuccessStr).toBe('  [ok] Build the parser (1.2s)');
+
+    const taskEndFailStr = formatter({
+      type: 'task-end',
+      batchIndex: 0,
+      taskTitle: 'Run linter',
+      result: {
+        success: false,
+        output: '',
+        durationMs: 300000,
+        error: 'timeout after 300000ms',
+      },
+    });
+    expect(taskEndFailStr).toBe('  [FAIL] Run linter -- timeout after 300000ms');
+
+    const batchEndStr = formatter({ type: 'batch-end', batchIndex: 0 });
+    expect(batchEndStr).toBe('[batch 1] Done');
+
+    const sessionEndStr = formatter({
+      type: 'session-end',
+      result: {
+        completed: [makeTask({ title: 'A', status: 'completed' })],
+        failed: [makeTask({ title: 'B', status: 'failed' })],
+        skipped: [],
+        startTime: new Date(),
+        endTime: new Date(),
+      },
+    });
+    expect(sessionEndStr).toBe(
+      'Session complete: 1/2 succeeded, 1 failed, 0 skipped',
+    );
   });
 });

@@ -1,5 +1,5 @@
 import { CoworkConfig } from './config.js';
-import { Task, ExecutionBatch, SessionResult, TaskRunResult } from './types.js';
+import { Task, ExecutionBatch, SessionResult, TaskRunResult, ProgressEvent } from './types.js';
 
 type TaskRunner = (task: Task) => Promise<TaskRunResult>;
 
@@ -47,6 +47,7 @@ async function runWithConcurrency(
   taskRunner: TaskRunner,
   concurrency: number,
   timeoutMs: number,
+  onTaskProgress?: (task: Task, result: TaskRunResult) => void,
 ): Promise<Array<{ index: number; result: TaskRunResult }>> {
   const results: Array<{ index: number; result: TaskRunResult }> = [];
   const queue = [...tasks];
@@ -57,6 +58,7 @@ async function runWithConcurrency(
       if (!item) break;
       const result = await runWithTimeout(item.task, taskRunner, timeoutMs);
       results.push({ index: item.index, result });
+      onTaskProgress?.(item.task, result);
     }
   }
 
@@ -72,10 +74,16 @@ async function runWithConcurrency(
 export class TaskExecutor {
   private readonly config: CoworkConfig;
   private readonly taskRunner: TaskRunner;
+  private readonly onProgress?: (event: ProgressEvent) => void;
 
-  constructor(config: CoworkConfig, taskRunner: TaskRunner) {
+  constructor(
+    config: CoworkConfig,
+    taskRunner: TaskRunner,
+    onProgress?: (event: ProgressEvent) => void,
+  ) {
     this.config = config;
     this.taskRunner = taskRunner;
+    this.onProgress = onProgress;
   }
 
   async execute(batches: ExecutionBatch[]): Promise<SessionResult> {
@@ -85,7 +93,8 @@ export class TaskExecutor {
     const skipped: Task[] = [];
     const failedTitles = new Set<string>();
 
-    for (const batch of batches) {
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex];
       const { tasksToRun, tasksToSkip } = this.partitionBatch(
         batch.tasks,
         failedTitles,
@@ -97,14 +106,44 @@ export class TaskExecutor {
 
       if (tasksToRun.length === 0) continue;
 
+      this.onProgress?.({
+        type: 'batch-start',
+        batchIndex,
+        taskCount: tasksToRun.length,
+      });
+
       const indexedTasks = tasksToRun.map((task, index) => ({ task, index }));
       const concurrency = batch.parallel ? this.config.concurrency : 1;
 
+      const onTaskProgress = (task: Task, result: TaskRunResult): void => {
+        this.onProgress?.({
+          type: 'task-end',
+          batchIndex,
+          taskTitle: task.title,
+          result,
+        });
+      };
+
+      const emitTaskStart = (task: Task): void => {
+        this.onProgress?.({
+          type: 'task-start',
+          batchIndex,
+          taskTitle: task.title,
+        });
+      };
+
+      const originalRunner = this.taskRunner;
+      const wrappedRunner: TaskRunner = async (task: Task) => {
+        emitTaskStart(task);
+        return originalRunner(task);
+      };
+
       const results = await runWithConcurrency(
         indexedTasks,
-        this.taskRunner,
+        wrappedRunner,
         concurrency,
         this.config.timeout,
+        onTaskProgress,
       );
 
       for (const { index, result } of results) {
@@ -116,10 +155,16 @@ export class TaskExecutor {
           failedTitles.add(task.title);
         }
       }
+
+      this.onProgress?.({ type: 'batch-end', batchIndex });
     }
 
     const endTime = new Date();
-    return { completed, failed, skipped, startTime, endTime };
+    const sessionResult = { completed, failed, skipped, startTime, endTime };
+
+    this.onProgress?.({ type: 'session-end', result: sessionResult });
+
+    return sessionResult;
   }
 
   /**

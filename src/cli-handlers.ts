@@ -1,7 +1,8 @@
 import { parseTasksFileSimple } from './parser.js';
 import { buildExecutionPlan } from './scheduler.js';
 import { generateReport, generateJsonReport } from './reporter.js';
-import { SessionResult, Task } from './types.js';
+import { appendTask } from './writer.js';
+import { SessionResult, Task, TaskPriority, TaskType, ProgressEvent } from './types.js';
 
 function formatBatchSummary(batchIndex: number, tasks: Task[], parallel: boolean, circular?: boolean): string {
   const mode = circular ? 'CIRCULAR' : parallel ? 'parallel' : 'sequential';
@@ -154,6 +155,33 @@ export function historyHandler(logs: ReadonlyArray<{ path: string; data: object 
   return [headerLine, separator, ...dataLines].join('\n');
 }
 
+export interface AddHandlerOptions {
+  readonly title: string;
+  readonly priority: TaskPriority;
+  readonly type: TaskType;
+  readonly context: string;
+  readonly dependsOn?: string[];
+  readonly filePath: string;
+}
+
+export async function addHandler(options: AddHandlerOptions): Promise<string> {
+  const task: Task = {
+    title: options.title,
+    priority: options.priority,
+    type: options.type,
+    context: options.context,
+    status: 'pending',
+  };
+
+  if (options.dependsOn && options.dependsOn.length > 0) {
+    task.dependsOn = options.dependsOn;
+  }
+
+  await appendTask(options.filePath, task);
+
+  return `Added task: "${options.title}" to ${options.filePath}`;
+}
+
 export function reportHandler(jsonInput: string, format?: 'markdown' | 'json'): string {
   let parsed: unknown;
   try {
@@ -178,4 +206,36 @@ export function reportHandler(jsonInput: string, format?: 'markdown' | 'json'): 
   }
 
   return generateReport(result, commits);
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) {
+    return `${ms}ms`;
+  }
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+export function createProgressFormatter(): (event: ProgressEvent) => string {
+  return (event: ProgressEvent): string => {
+    switch (event.type) {
+      case 'batch-start':
+        return `[batch ${event.batchIndex + 1}] Starting ${event.taskCount} task${event.taskCount === 1 ? '' : 's'}...`;
+      case 'task-start':
+        return `  Starting: ${event.taskTitle}`;
+      case 'task-end': {
+        if (event.result.success) {
+          return `  [ok] ${event.taskTitle} (${formatDuration(event.result.durationMs)})`;
+        }
+        const reason = event.result.error ?? 'unknown error';
+        return `  [FAIL] ${event.taskTitle} -- ${reason}`;
+      }
+      case 'batch-end':
+        return `[batch ${event.batchIndex + 1}] Done`;
+      case 'session-end': {
+        const r = event.result;
+        const total = r.completed.length + r.failed.length + r.skipped.length;
+        return `Session complete: ${r.completed.length}/${total} succeeded, ${r.failed.length} failed, ${r.skipped.length} skipped`;
+      }
+    }
+  };
 }

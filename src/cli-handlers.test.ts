@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { runHandler, statusHandler, reportHandler } from './cli-handlers.js';
+import { runHandler, statusHandler, reportHandler, addHandler } from './cli-handlers.js';
+import { parseTasksFileSimple } from './parser.js';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { writeFile, readFile, mkdtemp, rm } from 'node:fs/promises';
 
 const sampleTasks = `## [ ] Build the login page
 **Priority:** high
@@ -263,5 +267,201 @@ describe('reportHandler', () => {
     expect(parsed.summary.skipped).toBe(1);
     expect(parsed.summary.totalTasks).toBe(2);
     expect(parsed.commits).toEqual(['abc1234 Initial commit', 'def5678 Fix bug']);
+  });
+});
+
+describe('addHandler', () => {
+  let tempDir: string;
+  let tempFile: string;
+
+  const baseTasks = `## [ ] Existing task
+**Priority:** low
+**Type:** docs
+**Context:** Already here.
+
+---
+`;
+
+  async function setup(): Promise<void> {
+    tempDir = await mkdtemp(join(tmpdir(), 'cowork-test-'));
+    tempFile = join(tempDir, 'TASKS.md');
+    await writeFile(tempFile, baseTasks, 'utf-8');
+  }
+
+  async function cleanup(): Promise<void> {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+
+  it('successfully adds a task with all fields', async () => {
+    await setup();
+    try {
+      const result = await addHandler({
+        title: 'Full task',
+        priority: 'high',
+        type: 'refactor',
+        context: 'Refactor the module',
+        dependsOn: ['Existing task'],
+        filePath: tempFile,
+      });
+
+      expect(result).toContain('Full task');
+      const content = await readFile(tempFile, 'utf-8');
+      expect(content).toContain('## [ ] Full task');
+      expect(content).toContain('**Priority:** high');
+      expect(content).toContain('**Type:** refactor');
+      expect(content).toContain('**Context:** Refactor the module');
+      expect(content).toContain('**Depends on:** Existing task');
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('adds a task with only title (defaults apply)', async () => {
+    await setup();
+    try {
+      const result = await addHandler({
+        title: 'Minimal task',
+        priority: 'medium',
+        type: 'code',
+        context: '',
+        filePath: tempFile,
+      });
+
+      expect(result).toContain('Minimal task');
+      const content = await readFile(tempFile, 'utf-8');
+      expect(content).toContain('## [ ] Minimal task');
+      expect(content).toContain('**Priority:** medium');
+      expect(content).toContain('**Type:** code');
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('appended task round-trips through parseTasksFileSimple', async () => {
+    await setup();
+    try {
+      await addHandler({
+        title: 'Round-trip task',
+        priority: 'low',
+        type: 'test',
+        context: 'Testing round-trip',
+        filePath: tempFile,
+      });
+
+      const content = await readFile(tempFile, 'utf-8');
+      const tasks = parseTasksFileSimple(content);
+      const added = tasks.find(t => t.title === 'Round-trip task');
+
+      expect(added).toBeDefined();
+      expect(added!.priority).toBe('low');
+      expect(added!.type).toBe('test');
+      expect(added!.context).toBe('Testing round-trip');
+      expect(added!.status).toBe('pending');
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('handles --depends-on with multiple comma-separated values', async () => {
+    await setup();
+    try {
+      await addHandler({
+        title: 'Dependent task',
+        priority: 'high',
+        type: 'code',
+        context: 'Has multiple deps',
+        dependsOn: ['Task A', 'Task B', 'Task C'],
+        filePath: tempFile,
+      });
+
+      const content = await readFile(tempFile, 'utf-8');
+      expect(content).toContain('**Depends on:** Task A, Task B, Task C');
+
+      const tasks = parseTasksFileSimple(content);
+      const added = tasks.find(t => t.title === 'Dependent task');
+      expect(added).toBeDefined();
+      expect(added!.dependsOn).toEqual(['Task A', 'Task B', 'Task C']);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('confirmation message includes the task title', async () => {
+    await setup();
+    try {
+      const result = await addHandler({
+        title: 'My unique title',
+        priority: 'medium',
+        type: 'docs',
+        context: 'Check confirmation',
+        filePath: tempFile,
+      });
+
+      expect(result).toBe(`Added task: "My unique title" to ${tempFile}`);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('task is actually written to the file', async () => {
+    await setup();
+    try {
+      await addHandler({
+        title: 'Written task',
+        priority: 'low',
+        type: 'design',
+        context: 'Verify file write',
+        filePath: tempFile,
+      });
+
+      const content = await readFile(tempFile, 'utf-8');
+      expect(content).toContain('## [ ] Written task');
+      expect(content).toContain('**Priority:** low');
+      expect(content).toContain('**Type:** design');
+      expect(content).toContain('**Context:** Verify file write');
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('does not include depends-on line when no dependencies', async () => {
+    await setup();
+    try {
+      await addHandler({
+        title: 'No deps task',
+        priority: 'medium',
+        type: 'code',
+        context: 'No dependencies here',
+        filePath: tempFile,
+      });
+
+      const content = await readFile(tempFile, 'utf-8');
+      // The depends-on line should not appear after the new task's context
+      const newTaskSection = content.split('## [ ] No deps task')[1];
+      expect(newTaskSection).not.toContain('**Depends on:**');
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('preserves existing tasks when appending', async () => {
+    await setup();
+    try {
+      await addHandler({
+        title: 'New task',
+        priority: 'high',
+        type: 'research',
+        context: 'Should not remove existing',
+        filePath: tempFile,
+      });
+
+      const content = await readFile(tempFile, 'utf-8');
+      const tasks = parseTasksFileSimple(content);
+      expect(tasks).toHaveLength(2);
+      expect(tasks[0].title).toBe('Existing task');
+      expect(tasks[1].title).toBe('New task');
+    } finally {
+      await cleanup();
+    }
   });
 });

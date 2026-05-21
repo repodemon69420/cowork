@@ -44,3 +44,10 @@ export interface ParseResult {
   tasks: Task[];
   warnings: ValidationWarning[];
 }
+
+export type ProgressEvent =
+  | { type: 'batch-start'; batchIndex: number; taskCount: number }
+  | { type: 'task-start'; batchIndex: number; taskTitle: string }
+  | { type: 'task-end'; batchIndex: number; taskTitle: string; result: TaskRunResult }
+  | { type: 'batch-end'; batchIndex: number }
+  | { type: 'session-end'; result: SessionResult };
