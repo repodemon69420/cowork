@@ -50,3 +50,41 @@
 **Depends on:** Add a task writer module for updating TASKS.md on disk
 
 ---
+
+## [x] Add configuration file support
+**Priority:** high
+**Type:** code
+**Context:** Create `src/config.ts` with CoworkConfig, loadConfig, resolveConfig.
+
+---
+
+## [x] Build the task executor module
+**Priority:** high
+**Type:** code
+**Context:** TaskExecutor class with timeout, concurrency, and dependency skip.
+**Depends on:** Add configuration file support
+
+---
+
+## [x] Add structured JSON output to the reporter
+**Priority:** medium
+**Type:** code
+**Context:** generateJsonReport + --format flag for markdown/json report output.
+
+---
+
+## [x] Write integration tests for the task executor
+**Priority:** medium
+**Type:** test
+**Context:** 6 integration tests covering full pipeline, writer, config, report.
+**Depends on:** Build the task executor module
+
+---
+
+## [x] Add session history logging
+**Priority:** low
+**Type:** code
+**Context:** src/history.ts with save/list/load + cowork history subcommand.
+**Depends on:** Add structured JSON output to the reporter, Add configuration file support
+
+---

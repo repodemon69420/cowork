@@ -4,6 +4,30 @@
 
 ---
 
+## Iteration 4 — Config, executor, JSON reporter, history
+**Status:** PASSED
+**Tasks:** Config support, task executor, JSON reporter, executor integration tests, session history
+**Tests:** 185 pass, 0 fail (57 new tests added)
+**Coverage:** 81.14% overall
+**Quality Gate:** PASSED (all criteria met)
+
+**Batch 1 (parallel — 2 workers):**
+- Created src/config.ts: CoworkConfig, loadConfig, resolveConfig with validation (16 tests)
+- Added generateJsonReport to reporter with structured JSON output (8 tests)
+- Wired --format flag through CLI for markdown/json report selection (3 tests)
+
+**Batch 2 (sequential — 1 worker):**
+- Created src/executor.ts: TaskExecutor class with batch-sequential, task-parallel execution
+- Per-task timeout via AbortController, concurrency limiting, dependency skip
+- Added TaskRunResult type, wired --execute flag into CLI (15 tests)
+
+**Batch 3 (parallel — 2 workers):**
+- Added 6 executor integration tests (pipeline, writer, config, report, circular, JSON)
+- Created src/history.ts: saveSessionLog, listSessionLogs, loadSessionLog (9 tests)
+- Added cowork history subcommand with --log-dir option
+
+---
+
 ## Iteration 3 — Core features, infrastructure, and CLI
 **Status:** PASSED
 **Tasks:** Circular dep detection, task writer, CI workflow, parser validation, CLI entry point
