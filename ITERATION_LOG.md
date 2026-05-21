@@ -4,6 +4,27 @@
 
 ---
 
+## Iteration 5 — CLI polish: config wiring, add, help, progress
+**Status:** PASSED
+**Tasks:** Config wiring, CLI add, per-subcommand help, progress callbacks
+**Tests:** 216 pass, 0 fail (25 new tests added)
+**Coverage:** 97%+ on logic modules
+**Quality Gate:** PASSED (all criteria met)
+
+**Batch 1 (sequential — 1 worker):**
+- Wired loadConfig/resolveConfig into all CLI subcommands
+- CLI flags now override config file values in proper priority order
+
+**Batch 2 (parallel — 2 workers):**
+- Added `cowork add` subcommand with --title/--priority/--type/--context/--depends-on (8 tests)
+- Added ProgressEvent type and onProgress callback to TaskExecutor (8 tests)
+
+**Batch 3 (sequential — 1 worker):**
+- Added per-subcommand --help/-h with descriptions, flags, and examples (9 tests)
+- Detects --help before parseArgs to avoid strict mode rejection
+
+---
+
 ## Iteration 4 — Config, executor, JSON reporter, history
 **Status:** PASSED
 **Tasks:** Config support, task executor, JSON reporter, executor integration tests, session history

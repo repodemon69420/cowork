@@ -1,65 +1,142 @@
-# Morning Report — 2026-05-16
+# Morning Report — 2026-05-21
 
 ## Summary
-- **Tasks completed:** 2 / 2
+- **Iterations completed:** 3 (iterations 3, 4, 5)
+- **Tasks completed:** 16 / 16
 - **Tasks failed:** 0
-- **Iterations:** 2
-- **Tests:** 62 passing, 100% coverage on logic modules
-- **Commits:** 3 (including this report)
+- **Tests:** 216 passing (154 new this session)
+- **Coverage:** 97%+ on all logic modules
+- **Commits:** 13 (this session)
 
-## Completed Tasks
-
-### Scaffold the project structure
-**Status:** Completed
-**Files changed:** package.json, tsconfig.json, eslint.config.js, vitest.config.ts, .gitignore, src/types.ts, src/parser.ts, src/scheduler.ts, src/reporter.ts, src/index.ts
-- Set up TypeScript Node.js project (ES2022, NodeNext, strict mode)
-- Created core modules: task parser (TASKS.md → Task[]), execution scheduler (dependency-aware parallel batching), and report generator (session results → markdown)
-- Configured Vitest with v8 coverage (80% threshold), ESLint with @typescript-eslint
-
-### Write unit tests for core utilities
-**Status:** Completed
-**Files changed:** src/parser.test.ts, src/scheduler.test.ts, src/reporter.test.ts, src/integration.test.ts
-- 47 unit tests covering parser, scheduler, and reporter individually
-- 15 integration tests covering the full pipeline end-to-end
-- Edge cases: unicode, long strings, all-failed/all-completed scenarios, missing dependencies, real TASKS.md parsing
-
-## Failed Tasks
-None.
-
-## Skipped Tasks
-None.
-
-## Commits
-- `b176b58` feat: [sdlc] scaffold project structure with TypeScript, tests, and tooling
-- `43be820` feat: [sdlc] add integration tests — 100% coverage on all logic modules
-
-## Quality Metrics
+## Session Metrics
 | Metric | Target | Actual |
 |--------|--------|--------|
-| Tests passing | 100% | 62/62 (100%) |
-| Coverage (statements) | ≥80% | 100% |
-| Coverage (branches) | ≥80% | 100% |
-| Max file length | <800 lines | 299 lines |
-| Max function length | <50 lines | 42 lines |
+| Tests passing | 100% | 216/216 |
+| Coverage (statements) | >= 80% | 97.1% |
+| Max source file | < 400 lines | 299 lines (cli-handlers.ts) |
 | CRITICAL issues | 0 | 0 |
+| Quality gate failures | 0 | 0 |
+
+## Iteration 3 — Core Features & Infrastructure
+
+### Detect circular dependencies in the scheduler
+**Status:** Completed
+- Added `detectCircularDependencies()` with DFS-based cycle detection
+- Circular batches now flagged with `circular: true` on ExecutionBatch
+- 10 new tests covering self-reference, 2-node, and chain cycles
+
+### Add task writer module
+**Status:** Completed
+- Created `src/writer.ts` with `updateTaskStatus` and `appendTask`
+- Uses `node:fs/promises` for disk I/O
+- 15 new tests using temp directories
+
+### GitHub Actions CI workflow
+**Status:** Completed
+- Created `.github/workflows/ci.yml`
+- Node 20+22 matrix, typecheck + lint + test:coverage
+
+### Validate task definitions during parsing
+**Status:** Completed
+- Changed `parseTasksFile` to return `ParseResult` with warnings
+- Added `parseTasksFileSimple` for backward compatibility
+- Warnings for: invalid priority/type, empty context, unresolved deps, duplicate titles
+- 16 new tests
+
+### Build the CLI entry point
+**Status:** Completed
+- Created `src/cli.ts` with run/status/report subcommands
+- Created `src/cli-handlers.ts` with pure testable handler functions
+- 26 new tests for handlers
+
+## Iteration 4 — Execution Engine & History
+
+### Configuration file support
+**Status:** Completed
+- Created `src/config.ts` with `CoworkConfig`, `loadConfig`, `resolveConfig`
+- Supports `cowork.config.json` with validation
+- 16 new tests
+
+### Task executor module
+**Status:** Completed
+- Created `TaskExecutor` class with batch-sequential, task-parallel execution
+- Per-task timeout via AbortController, concurrency limiting
+- Failed dependencies skip downstream tasks
+- 15 unit + 6 integration tests
+
+### JSON reporter output
+**Status:** Completed
+- Added `generateJsonReport` for structured output
+- Wired `--format` flag through CLI (markdown/json)
+- 8 + 3 new tests
+
+### Session history logging
+**Status:** Completed
+- Created `src/history.ts` with save/list/load functions
+- Added `cowork history` subcommand
+- 9 new tests
+
+## Iteration 5 — CLI Polish & DX
+
+### Wire config into CLI
+**Status:** Completed
+- Integrated `loadConfig`/`resolveConfig` into all subcommands
+- CLI flags override config file values with proper priority
+- 6 new tests
+
+### CLI add subcommand
+**Status:** Completed
+- `cowork add --title "..." --priority high --type test`
+- Input validation against type enums with clear error messages
+- 8 new tests
+
+### Progress callbacks
+**Status:** Completed
+- Added `ProgressEvent` discriminated union type
+- Added `onProgress` callback to `TaskExecutor`
+- `createProgressFormatter` for human-readable stderr output
+- 8 new tests
+
+### Per-subcommand --help
+**Status:** Completed
+- `cowork <cmd> --help` shows command-specific help with examples
+- Detects --help before parseArgs to avoid strict mode rejection
+- 9 new tests
 
 ## Architecture
 ```
 src/
-├── types.ts          (27 lines)  — Type definitions
-├── parser.ts         (71 lines)  — TASKS.md → Task[]
-├── scheduler.ts      (53 lines)  — Task[] → ExecutionBatch[]
-├── reporter.ts       (72 lines)  — SessionResult → markdown report
-├── index.ts          (4 lines)   — Barrel re-exports
-├── parser.test.ts    (299 lines) — 20 unit tests
-├── scheduler.test.ts (162 lines) — 13 unit tests
-├── reporter.test.ts  (162 lines) — 14 unit tests
-└── integration.test.ts           — 15 integration tests
+├── types.ts          (53 lines)  — All type definitions
+├── config.ts         (78 lines)  — CoworkConfig, loadConfig, resolveConfig
+├── parser.ts         (176 lines) — TASKS.md → ParseResult with validation
+├── scheduler.ts      (127 lines) — Dependency-aware batch scheduling
+├── executor.ts       (200 lines) — TaskExecutor with timeout + concurrency
+├── reporter.ts       (96 lines)  — Markdown + JSON report generation
+├── writer.ts         (59 lines)  — Read/write task status to disk
+├── history.ts        (64 lines)  — Session log persistence
+├── cli-handlers.ts   (299 lines) — Pure handler functions for CLI
+├── cli.ts            (251 lines) — CLI entry point (6 subcommands)
+├── index.ts          (9 lines)   — Barrel re-exports
+└── [10 test files]   (~3800 lines) — 216 tests
 ```
 
+## Commits (this session)
+- `4ecd769` chore: product mind — add 5 new tasks to backlog
+- `eeffe71` feat: batch 1 — circular deps, writer, CI, parser validation
+- `95fa22f` docs: update iteration log — iteration 3 batch 1 complete
+- `0b7f6f0` feat: CLI entry point with run, status, report subcommands
+- `a74e5d9` chore: product mind — add 5 iteration 4 tasks
+- `24b9d7c` feat: config support and JSON reporter output
+- `8d87d1f` feat: task executor with timeout, concurrency, dependency skip
+- `37a1046` feat: executor integration tests + session history logging
+- `ecec839` chore: product mind — add 4 iteration 5 tasks
+- `6981473` feat: wire config file into CLI, fix coverage thresholds
+- `f4a7cbf` feat: CLI add subcommand + progress callbacks for executor
+- `e487fdc` feat: per-subcommand --help with usage examples
+
 ## Recommendations
-1. **Next tasks to queue:** Add a CLI entry point (`src/cli.ts`) that wires the modules together — reads TASKS.md, runs the scheduler, and writes the report
-2. **Consider adding:** A file-system adapter module for reading/writing TASKS.md and MORNING_REPORT.md (keeps core modules pure)
-3. **Linting:** Run `npx eslint src/` to verify lint compliance (not yet run in CI)
-4. **CI/CD:** Add a GitHub Actions workflow for test + typecheck on push
-5. **The parser** now handles both `**Field:** value` and `- **Field:** value` formats — keep this flexible pattern for future field additions
+1. **Try the CLI**: Run `npx tsx src/cli.ts status --file TASKS.md` to see the task table
+2. **Add a README.md**: Document installation, configuration, and all 6 subcommands
+3. **Build step**: Add `npm run build` to compile TypeScript and test the `cowork` bin entry
+4. **Real task runner**: The `--execute` flag shows "not implemented" — wire up a real `taskRunner` callback
+5. **E2E tests**: Add end-to-end tests that run the compiled CLI binary

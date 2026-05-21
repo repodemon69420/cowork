@@ -88,3 +88,34 @@
 **Depends on:** Add structured JSON output to the reporter, Add configuration file support
 
 ---
+
+## [x] Wire configuration file into the CLI
+**Priority:** high
+**Type:** code
+**Context:** Integrate loadConfig/resolveConfig into CLI subcommand dispatch.
+
+---
+
+## [x] Add a CLI add subcommand
+**Priority:** medium
+**Type:** code
+**Context:** cowork add --title/--priority/--type/--context/--depends-on.
+**Depends on:** Wire configuration file into the CLI
+
+---
+
+## [x] Add progress callbacks and live status output
+**Priority:** medium
+**Type:** code
+**Context:** ProgressEvent type, onProgress callback, createProgressFormatter.
+**Depends on:** Wire configuration file into the CLI
+
+---
+
+## [x] Add per-subcommand --help with usage examples
+**Priority:** medium
+**Type:** code
+**Context:** getSubcommandHelp for all 5 subcommands with descriptions and examples.
+**Depends on:** Add a CLI add subcommand
+
+---
