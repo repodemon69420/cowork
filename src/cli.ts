@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
 import { readFile } from 'node:fs/promises';
-import { runHandler, statusHandler, reportHandler } from './cli-handlers.js';
+import { runHandler, statusHandler, reportHandler, historyHandler } from './cli-handlers.js';
+import { listSessionLogs, loadSessionLog } from './history.js';
+import { DEFAULT_CONFIG } from './config.js';
 
 function printUsage(): void {
   const usage = `Usage: cowork <command> [options]
@@ -10,11 +12,13 @@ Commands:
   run      Parse TASKS.md and print execution plan
   status   Print task status table
   report   Generate markdown report from session JSON
+  history  Show session history log
 
 Options:
-  --file <path>   Path to TASKS.md (default: ./TASKS.md)
-  --input <path>  Path to session result JSON (for report command)
-  --help          Show this help message`;
+  --file <path>     Path to TASKS.md (default: ./TASKS.md)
+  --input <path>    Path to session result JSON (for report command)
+  --log-dir <path>  Path to log directory (for history command)
+  --help            Show this help message`;
 
   console.log(usage);
 }
@@ -103,6 +107,33 @@ async function main(): Promise<void> {
 
     try {
       const output = reportHandler(content, values.format as 'markdown' | 'json');
+      console.log(output);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      console.error(`Error: ${message}`);
+      process.exit(1);
+    }
+  } else if (subcommand === 'history') {
+    const { values } = parseArgs({
+      args: subcommandArgs,
+      options: {
+        'log-dir': { type: 'string', default: DEFAULT_CONFIG.logDir },
+      },
+      strict: true,
+    });
+
+    const logDir = values['log-dir'] as string;
+
+    try {
+      const logPaths = await listSessionLogs(logDir);
+      const logs: Array<{ path: string; data: object }> = [];
+
+      for (const logPath of logPaths) {
+        const data = await loadSessionLog(logPath);
+        logs.push({ path: logPath, data });
+      }
+
+      const output = historyHandler(logs);
       console.log(output);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';

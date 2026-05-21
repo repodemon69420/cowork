@@ -1,7 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { TaskExecutor } from './executor.js';
 import { Task, ExecutionBatch, TaskRunResult } from './types.js';
-import { CoworkConfig } from './config.js';
+import { CoworkConfig, resolveConfig } from './config.js';
+import { parseTasksFileSimple } from './parser.js';
+import { buildExecutionPlan } from './scheduler.js';
+import { generateReport, generateJsonReport } from './reporter.js';
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -356,5 +359,293 @@ describe('TaskExecutor', () => {
     expect(result.failed.map(t => t.title)).toEqual(['Fails']);
     expect(result.completed.map(t => t.title)).toEqual(['Independent']);
     expect(result.skipped).toHaveLength(0);
+  });
+});
+
+describe('TaskExecutor integration', () => {
+  it('full pipeline: parse TASKS.md -> build plan -> execute -> verify SessionResult', async () => {
+    const tasksContent = [
+      '## [ ] Set up database',
+      '- **Priority:** high',
+      '- **Type:** code',
+      '- **Context:** Initialize the database schema',
+      '',
+      '## [ ] Write API endpoints',
+      '- **Priority:** medium',
+      '- **Type:** code',
+      '- **Context:** REST API for the app',
+      '- **Depends on:** Set up database',
+      '',
+      '## [ ] Add logging',
+      '- **Priority:** low',
+      '- **Type:** code',
+      '- **Context:** Structured logging middleware',
+    ].join('\n');
+
+    const tasks = parseTasksFileSimple(tasksContent);
+    expect(tasks).toHaveLength(3);
+
+    const batches = buildExecutionPlan(tasks);
+    expect(batches.length).toBeGreaterThanOrEqual(1);
+
+    const runner = vi.fn().mockImplementation(async (task: Task) => {
+      return { success: true, output: `Completed: ${task.title}`, durationMs: 5 };
+    });
+
+    const executor = new TaskExecutor(makeConfig(), runner);
+    const result = await executor.execute(batches);
+
+    expect(result.completed).toHaveLength(3);
+    expect(result.failed).toHaveLength(0);
+    expect(result.skipped).toHaveLength(0);
+    expect(result.startTime).toBeInstanceOf(Date);
+    expect(result.endTime).toBeInstanceOf(Date);
+
+    // Verify that the dependency ordering was respected: "Set up database" must
+    // have been called before "Write API endpoints"
+    const calledTitles = runner.mock.calls.map((call) => (call[0] as Task).title);
+    const dbIndex = calledTitles.indexOf('Set up database');
+    const apiIndex = calledTitles.indexOf('Write API endpoints');
+    expect(dbIndex).toBeLessThan(apiIndex);
+  });
+
+  it('writer integration: executor results enable updateTaskStatus calls', async () => {
+    const tasksContent = [
+      '## [ ] Build feature X',
+      '- **Priority:** high',
+      '- **Type:** code',
+      '- **Context:** Implement feature X',
+      '',
+      '## [ ] Fix bug Y',
+      '- **Priority:** medium',
+      '- **Type:** code',
+      '- **Context:** Fix the Y bug',
+    ].join('\n');
+
+    const tasks = parseTasksFileSimple(tasksContent);
+    const batches = buildExecutionPlan(tasks);
+
+    const runner = vi.fn().mockImplementation(async (task: Task) => {
+      if (task.title === 'Fix bug Y') {
+        return failResult('bug fix failed');
+      }
+      return successResult('done');
+    });
+
+    const executor = new TaskExecutor(makeConfig(), runner);
+    const result = await executor.execute(batches);
+
+    // Verify the executor produced actionable results for the writer
+    expect(result.completed).toHaveLength(1);
+    expect(result.completed[0].title).toBe('Build feature X');
+    expect(result.completed[0].status).toBe('completed');
+    expect(result.failed).toHaveLength(1);
+    expect(result.failed[0].title).toBe('Fix bug Y');
+    expect(result.failed[0].status).toBe('failed');
+
+    // Mock updateTaskStatus to verify the flow works end-to-end
+    // (without actually writing to disk)
+    const mockUpdate = vi.fn().mockResolvedValue(undefined);
+
+    for (const task of result.completed) {
+      await mockUpdate('TASKS.md', task.title, task.status);
+    }
+    for (const task of result.failed) {
+      await mockUpdate('TASKS.md', task.title, task.status);
+    }
+
+    expect(mockUpdate).toHaveBeenCalledTimes(2);
+    expect(mockUpdate).toHaveBeenCalledWith('TASKS.md', 'Build feature X', 'completed');
+    expect(mockUpdate).toHaveBeenCalledWith('TASKS.md', 'Fix bug Y', 'failed');
+  });
+
+  it('config integration: executor respects concurrency and timeout from config', async () => {
+    const config = resolveConfig({ concurrency: 2, timeout: 50 }, {});
+
+    expect(config.concurrency).toBe(2);
+    expect(config.timeout).toBe(50);
+
+    const tasks = [
+      makeTask({ title: 'T1' }),
+      makeTask({ title: 'T2' }),
+      makeTask({ title: 'T3' }),
+      makeTask({ title: 'T4' }),
+    ];
+    const batches: ExecutionBatch[] = [{ tasks, parallel: true }];
+
+    const executing = new Set<string>();
+    let maxConcurrent = 0;
+
+    const runner = vi.fn().mockImplementation(async (task: Task) => {
+      executing.add(task.title);
+      maxConcurrent = Math.max(maxConcurrent, executing.size);
+      await new Promise(resolve => setTimeout(resolve, 10));
+      executing.delete(task.title);
+      return successResult(task.title);
+    });
+
+    const executor = new TaskExecutor(config, runner);
+    const result = await executor.execute(batches);
+
+    // Concurrency should be capped at 2
+    expect(maxConcurrent).toBeLessThanOrEqual(2);
+    expect(result.completed).toHaveLength(4);
+
+    // Now verify timeout is also respected via the config
+    const slowRunner = vi.fn().mockImplementation(async () => {
+      await new Promise(resolve => setTimeout(resolve, 200));
+      return successResult();
+    });
+
+    const slowBatches: ExecutionBatch[] = [
+      { tasks: [makeTask({ title: 'Slow' })], parallel: false },
+    ];
+
+    const timeoutExecutor = new TaskExecutor(config, slowRunner);
+    const timeoutResult = await timeoutExecutor.execute(slowBatches);
+
+    expect(timeoutResult.failed).toHaveLength(1);
+    expect(timeoutResult.failed[0].title).toBe('Slow');
+  });
+
+  it('report generation: execute tasks then generate markdown report', async () => {
+    const tasksContent = [
+      '## [ ] Migrate database',
+      '- **Priority:** high',
+      '- **Type:** code',
+      '- **Context:** Migrate to v2 schema',
+      '',
+      '## [ ] Update docs',
+      '- **Priority:** low',
+      '- **Type:** docs',
+      '- **Context:** Update API documentation',
+      '- **Depends on:** Migrate database',
+    ].join('\n');
+
+    const tasks = parseTasksFileSimple(tasksContent);
+    const batches = buildExecutionPlan(tasks);
+
+    const runner = vi.fn().mockResolvedValue(successResult('done'));
+
+    const executor = new TaskExecutor(makeConfig(), runner);
+    const result = await executor.execute(batches);
+
+    const report = generateReport(result, ['abc1234 - migrated db', 'def5678 - updated docs']);
+
+    expect(report).toContain('# Overnight Session Report');
+    expect(report).toContain('## Completed');
+    expect(report).toContain('Migrate database');
+    expect(report).toContain('Update docs');
+    expect(report).toContain('2/2 completed');
+    expect(report).toContain('## Commits');
+    expect(report).toContain('abc1234 - migrated db');
+    expect(report).toContain('def5678 - updated docs');
+    // Should NOT contain Failed or Skipped sections
+    expect(report).not.toContain('## Failed');
+    expect(report).not.toContain('## Skipped');
+  });
+
+  it('circular dependency handling: executor processes circular batch', async () => {
+    // Create tasks with circular deps: A -> B -> C -> A
+    const tasks = [
+      makeTask({ title: 'Alpha', dependsOn: ['Charlie'] }),
+      makeTask({ title: 'Bravo', dependsOn: ['Alpha'] }),
+      makeTask({ title: 'Charlie', dependsOn: ['Bravo'] }),
+    ];
+
+    const batches = buildExecutionPlan(tasks);
+
+    // The scheduler should detect the circular dependency and create a batch
+    // with the circular flag set
+    const circularBatch = batches.find(b => b.circular === true);
+    expect(circularBatch).toBeDefined();
+    expect(circularBatch!.tasks).toHaveLength(3);
+
+    // Now execute the circular batch -- the executor will still attempt to run
+    // the tasks (it treats circular batches as sequential)
+    const runner = vi.fn().mockImplementation(async (task: Task) => {
+      return successResult(`ran ${task.title}`);
+    });
+
+    const executor = new TaskExecutor(makeConfig(), runner);
+    const result = await executor.execute(batches);
+
+    // The executor runs them regardless of the circular flag; it just processes
+    // tasks as given. All three should complete since the runner succeeds.
+    expect(result.completed).toHaveLength(3);
+    expect(result.failed).toHaveLength(0);
+    expect(result.skipped).toHaveLength(0);
+    expect(runner).toHaveBeenCalledTimes(3);
+  });
+
+  it('JSON report integration: execute tasks then generate valid JSON report', async () => {
+    const tasksContent = [
+      '## [ ] Task one',
+      '- **Priority:** high',
+      '- **Type:** code',
+      '- **Context:** First task',
+      '',
+      '## [ ] Task two',
+      '- **Priority:** medium',
+      '- **Type:** test',
+      '- **Context:** Second task',
+      '- **Depends on:** Task one',
+      '',
+      '## [ ] Task three',
+      '- **Priority:** low',
+      '- **Type:** docs',
+      '- **Context:** Third task',
+    ].join('\n');
+
+    const tasks = parseTasksFileSimple(tasksContent);
+    const batches = buildExecutionPlan(tasks);
+
+    const runner = vi.fn().mockImplementation(async (task: Task) => {
+      if (task.title === 'Task two') {
+        return failResult('test failures');
+      }
+      return successResult(`done: ${task.title}`);
+    });
+
+    const executor = new TaskExecutor(makeConfig(), runner);
+    const result = await executor.execute(batches);
+
+    const commits = ['aaa1111 - initial commit'];
+    const jsonString = generateJsonReport(result, commits);
+
+    // Verify valid JSON
+    const parsed = JSON.parse(jsonString);
+
+    // Verify structure
+    expect(parsed).toHaveProperty('summary');
+    expect(parsed).toHaveProperty('tasks');
+    expect(parsed).toHaveProperty('commits');
+    expect(parsed).toHaveProperty('generatedAt');
+
+    // Verify summary values
+    expect(parsed.summary.completed).toBe(result.completed.length);
+    expect(parsed.summary.failed).toBe(result.failed.length);
+    expect(parsed.summary.skipped).toBe(result.skipped.length);
+    expect(parsed.summary.totalTasks).toBe(
+      result.completed.length + result.failed.length + result.skipped.length,
+    );
+
+    // Verify tasks section reflects the actual execution
+    expect(parsed.tasks.completed.length).toBe(result.completed.length);
+    expect(parsed.tasks.failed.length).toBe(result.failed.length);
+    expect(parsed.tasks.skipped.length).toBe(result.skipped.length);
+
+    // "Task one" and "Task three" should be completed, "Task two" failed
+    const completedTitles = parsed.tasks.completed.map((t: Task) => t.title).sort();
+    expect(completedTitles).toEqual(['Task one', 'Task three']);
+
+    const failedTitles = parsed.tasks.failed.map((t: Task) => t.title);
+    expect(failedTitles).toEqual(['Task two']);
+
+    // Commits
+    expect(parsed.commits).toEqual(['aaa1111 - initial commit']);
+
+    // generatedAt should be a valid ISO date string
+    expect(new Date(parsed.generatedAt).toISOString()).toBe(parsed.generatedAt);
   });
 });

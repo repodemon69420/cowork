@@ -80,7 +80,7 @@
 
 ---
 
-## [ ] Write integration tests for the task executor
+## [x] Write integration tests for the task executor
 **Priority:** medium
 **Type:** test
 **Context:** The executor module needs thorough integration testing beyond its unit tests. Create `src/executor.test.ts` with at least 12 tests covering: (1) a simple single-batch execution with one task that succeeds; (2) parallel execution of multiple independent tasks in a batch; (3) sequential batch execution where batch 2 depends on batch 1; (4) a task that times out and is marked as failed; (5) a task that throws an error and is marked as failed while sibling tasks still complete; (6) downstream tasks being skipped when an upstream dependency fails; (7) the writer module being called after each task to persist status; (8) the returned `SessionResult` having correct `completed`, `failed`, and `skipped` arrays; (9) concurrency limiting (e.g., config.concurrency=1 forces serial execution even in parallel batches); (10) an empty batch list returning an empty session result; (11) the `--execute` flag on the CLI triggering actual execution vs dry-run; (12) timeout edge case where task finishes just before the deadline. Use a mock `taskRunner` callback that resolves/rejects based on test needs. Use `vi.useFakeTimers()` for timeout tests.
@@ -88,7 +88,7 @@
 
 ---
 
-## [ ] Add session history logging
+## [x] Add session history logging
 **Priority:** low
 **Type:** code
 **Context:** There is no record of past sessions once the process exits. Create `src/history.ts` that exports: (1) `saveSessionLog(logDir: string, result: SessionResult, commits: string[]): Promise<string>` that writes the JSON report (using `generateJsonReport` from the reporter) to `<logDir>/<ISO-timestamp>.json` and returns the file path, creating the `logDir` directory recursively if it does not exist; (2) `listSessionLogs(logDir: string): Promise<string[]>` that returns an array of log file paths sorted by timestamp descending; (3) `loadSessionLog(filePath: string): Promise<SessionResult>` that reads and parses a log file back into a `SessionResult`. Add a `cowork history` subcommand to `cli.ts` that lists past sessions with their date, duration, and task completion counts in a table (reuse the `padRight` helper from `cli-handlers.ts`). The default `logDir` should come from `CoworkConfig`. Export all new functions from `src/index.ts`. Write at least 8 tests using temp directories: saving and loading a log round-trips correctly, `listSessionLogs` returns files in reverse chronological order, missing `logDir` is created automatically, corrupt log files throw descriptive errors, empty log directory returns an empty list.

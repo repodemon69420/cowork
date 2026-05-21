@@ -112,6 +112,48 @@ function parseSessionResult(json: unknown): SessionResult {
   };
 }
 
+export function historyHandler(logs: ReadonlyArray<{ path: string; data: object }>): string {
+  if (logs.length === 0) {
+    return 'No session logs found.';
+  }
+
+  const rows = logs.map((log) => {
+    const record = log.data as Record<string, unknown>;
+    const summary = (record['summary'] ?? {}) as Record<string, unknown>;
+    const generatedAt = typeof record['generatedAt'] === 'string' ? record['generatedAt'] : 'unknown';
+    const duration = typeof summary['duration'] === 'string' ? summary['duration'] : '-';
+    const completed = typeof summary['completed'] === 'number' ? summary['completed'] : 0;
+    const failed = typeof summary['failed'] === 'number' ? summary['failed'] : 0;
+    const skipped = typeof summary['skipped'] === 'number' ? summary['skipped'] : 0;
+
+    return {
+      date: generatedAt,
+      duration,
+      completed: String(completed),
+      failed: String(failed),
+      skipped: String(skipped),
+    };
+  });
+
+  const headers = { date: 'Date', duration: 'Duration', completed: 'Completed', failed: 'Failed', skipped: 'Skipped' };
+
+  const colWidths = {
+    date: Math.max(headers.date.length, ...rows.map((r) => r.date.length)),
+    duration: Math.max(headers.duration.length, ...rows.map((r) => r.duration.length)),
+    completed: Math.max(headers.completed.length, ...rows.map((r) => r.completed.length)),
+    failed: Math.max(headers.failed.length, ...rows.map((r) => r.failed.length)),
+    skipped: Math.max(headers.skipped.length, ...rows.map((r) => r.skipped.length)),
+  };
+
+  const headerLine = `${padRight(headers.date, colWidths.date)} | ${padRight(headers.duration, colWidths.duration)} | ${padRight(headers.completed, colWidths.completed)} | ${padRight(headers.failed, colWidths.failed)} | ${padRight(headers.skipped, colWidths.skipped)}`;
+  const separator = `${'-'.repeat(colWidths.date)} | ${'-'.repeat(colWidths.duration)} | ${'-'.repeat(colWidths.completed)} | ${'-'.repeat(colWidths.failed)} | ${'-'.repeat(colWidths.skipped)}`;
+  const dataLines = rows.map((r) =>
+    `${padRight(r.date, colWidths.date)} | ${padRight(r.duration, colWidths.duration)} | ${padRight(r.completed, colWidths.completed)} | ${padRight(r.failed, colWidths.failed)} | ${padRight(r.skipped, colWidths.skipped)}`,
+  );
+
+  return [headerLine, separator, ...dataLines].join('\n');
+}
+
 export function reportHandler(jsonInput: string, format?: 'markdown' | 'json'): string {
   let parsed: unknown;
   try {
