@@ -4,6 +4,24 @@
 
 ---
 
+## Iteration 3 — Batch 1: Core features and infrastructure
+**Status:** PASSED
+**Tasks:** Circular dep detection, task writer, CI workflow, parser validation
+**Tests:** 102 pass, 0 fail (40 new tests added)
+**Coverage:** 98.58% statements
+**Quality Gate:** PASSED (all criteria met)
+**Commit:** eeffe71
+
+**Changes:**
+- Added `detectCircularDependencies()` to scheduler with DFS cycle detection (10 new tests)
+- Created src/writer.ts: `updateTaskStatus` and `appendTask` for disk I/O (15 new tests)
+- Created .github/workflows/ci.yml: Node 20+22 matrix, typecheck, lint, test:coverage
+- Refactored parseTasksFile to return `ParseResult` with validation warnings (16 new tests)
+- Added `parseTasksFileSimple` convenience wrapper for backward compatibility
+- Added `@types/node` dev dependency, fixed lint unused import
+
+---
+
 ## Iteration 2 — Write unit tests for core utilities
 **Status:** PASSED
 **Task:** Write unit tests for core utilities
