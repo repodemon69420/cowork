@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { parseTasksFile } from './parser.js';
 import { buildExecutionPlan } from './scheduler.js';
-import { generateReport, formatTaskSection } from './reporter.js';
+import { generateReport } from './reporter.js';
 import type { Task, SessionResult } from './types.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -49,7 +49,7 @@ describe('Full pipeline integration', () => {
 `;
 
     // Step 1: Parse
-    const tasks = parseTasksFile(content);
+    const { tasks } = parseTasksFile(content);
     expect(tasks).toHaveLength(4);
 
     // Step 2: Build execution plan (only pending tasks are scheduled)
@@ -113,7 +113,7 @@ describe('Full pipeline integration', () => {
 **Depends on:** Task B
 `;
 
-    const tasks = parseTasksFile(content);
+    const { tasks } = parseTasksFile(content);
     const plan = buildExecutionPlan(tasks);
 
     // Three sequential batches because of the chain
@@ -128,7 +128,7 @@ describe('Real TASKS.md from this project', () => {
   it('parses the actual TASKS.md file successfully', () => {
     const tasksPath = resolve(__dirname, '../TASKS.md');
     const content = readFileSync(tasksPath, 'utf-8');
-    const tasks = parseTasksFile(content);
+    const { tasks } = parseTasksFile(content);
 
     // The actual TASKS.md has at least one task
     expect(tasks.length).toBeGreaterThanOrEqual(1);
@@ -159,7 +159,7 @@ describe('Real TASKS.md from this project', () => {
   it('builds an execution plan from the actual TASKS.md', () => {
     const tasksPath = resolve(__dirname, '../TASKS.md');
     const content = readFileSync(tasksPath, 'utf-8');
-    const tasks = parseTasksFile(content);
+    const { tasks } = parseTasksFile(content);
     const plan = buildExecutionPlan(tasks);
 
     // The plan should be an array (possibly empty if all tasks are completed)
@@ -186,7 +186,7 @@ describe('Edge cases pipeline', () => {
 **Context:** Also done.
 `;
 
-    const tasks = parseTasksFile(content);
+    const { tasks } = parseTasksFile(content);
     expect(tasks).toHaveLength(2);
     expect(tasks.every(t => t.status === 'completed')).toBe(true);
 
@@ -224,7 +224,7 @@ describe('Edge cases pipeline', () => {
 **Context:** This also failed.
 `;
 
-    const tasks = parseTasksFile(content);
+    const { tasks } = parseTasksFile(content);
     expect(tasks).toHaveLength(2);
     expect(tasks.every(t => t.status === 'failed')).toBe(true);
 
@@ -262,7 +262,7 @@ describe('Edge cases pipeline', () => {
 **Context:** Has no dependencies.
 `;
 
-    const tasks = parseTasksFile(content);
+    const { tasks } = parseTasksFile(content);
     expect(tasks).toHaveLength(2);
 
     const plan = buildExecutionPlan(tasks);
@@ -287,7 +287,7 @@ describe('Edge cases pipeline', () => {
 **Context:** ${longContext}
 `;
 
-    const tasks = parseTasksFile(content);
+    const { tasks } = parseTasksFile(content);
     expect(tasks).toHaveLength(1);
     expect(tasks[0].title).toBe(longTitle);
     expect(tasks[0].title).toHaveLength(500);
@@ -329,7 +329,7 @@ describe('Edge cases pipeline', () => {
 **Context:** これは日本語のコンテキストです。
 `;
 
-    const tasks = parseTasksFile(content);
+    const { tasks } = parseTasksFile(content);
     expect(tasks).toHaveLength(3);
 
     expect(tasks[0].title).toBe('Deploy — production \u{1F680}\u{1F30D}');
@@ -407,6 +407,7 @@ describe('Re-export verification', () => {
 
     // Verify function exports
     expect(typeof indexModule.parseTasksFile).toBe('function');
+    expect(typeof indexModule.parseTasksFileSimple).toBe('function');
     expect(typeof indexModule.buildExecutionPlan).toBe('function');
     expect(typeof indexModule.generateReport).toBe('function');
     expect(typeof indexModule.formatTaskSection).toBe('function');
@@ -414,7 +415,7 @@ describe('Re-export verification', () => {
 
   it('parseTasksFile from index works correctly', async () => {
     const { parseTasksFile: parse } = await import('./index.js');
-    const tasks = parse(`## [ ] Test task
+    const { tasks } = parse(`## [ ] Test task
 **Priority:** high
 **Type:** code
 **Context:** Works from re-export.

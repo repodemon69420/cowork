@@ -15,6 +15,80 @@ function hasUnmetDependencies(task: Task, completedTitles: Set<string>): boolean
   return task.dependsOn.some((dep: string) => !completedTitles.has(dep));
 }
 
+/**
+ * Detects circular dependencies among tasks using DFS-based cycle detection.
+ * Returns an array of cycles, where each cycle is an array of task titles.
+ */
+export function detectCircularDependencies(tasks: Task[]): string[][] {
+  const taskMap = new Map<string, readonly string[]>();
+  for (const task of tasks) {
+    taskMap.set(task.title, task.dependsOn ?? []);
+  }
+
+  const visited = new Set<string>();
+  const cycles: string[][] = [];
+
+  for (const task of tasks) {
+    if (visited.has(task.title)) continue;
+    const cycle = findCycleFrom(task.title, taskMap, visited);
+    if (cycle.length > 0) {
+      cycles.push(cycle);
+    }
+  }
+
+  return cycles;
+}
+
+function findCycleFrom(
+  start: string,
+  taskMap: Map<string, readonly string[]>,
+  globalVisited: Set<string>,
+): string[] {
+  const path: string[] = [];
+  const pathSet = new Set<string>();
+  const localVisited = new Set<string>();
+
+  const stack: Array<{ node: string; depIndex: number }> = [
+    { node: start, depIndex: 0 },
+  ];
+  path.push(start);
+  pathSet.add(start);
+
+  while (stack.length > 0) {
+    const frame = stack[stack.length - 1];
+    const deps = taskMap.get(frame.node) ?? [];
+
+    if (frame.depIndex >= deps.length) {
+      stack.pop();
+      path.pop();
+      pathSet.delete(frame.node);
+      localVisited.add(frame.node);
+      globalVisited.add(frame.node);
+      continue;
+    }
+
+    const nextDep = deps[frame.depIndex];
+    frame.depIndex += 1;
+
+    if (!taskMap.has(nextDep)) continue;
+
+    if (pathSet.has(nextDep)) {
+      const cycleStart = path.indexOf(nextDep);
+      const cycle = path.slice(cycleStart);
+      cycle.forEach(t => globalVisited.add(t));
+      return cycle;
+    }
+
+    if (localVisited.has(nextDep) || globalVisited.has(nextDep)) continue;
+
+    path.push(nextDep);
+    pathSet.add(nextDep);
+    stack.push({ node: nextDep, depIndex: 0 });
+  }
+
+  return [];
+}
+
 export function buildExecutionPlan(tasks: Task[]): ExecutionBatch[] {
   const batches: ExecutionBatch[] = [];
   const pending = tasks.filter(t => t.status === 'pending');
@@ -35,7 +109,7 @@ export function buildExecutionPlan(tasks: Task[]): ExecutionBatch[] {
 
     if (ready.length === 0) {
       const skipped = sortByPriority([...remaining]);
-      batches.push({ tasks: skipped, parallel: false });
+      batches.push({ tasks: skipped, parallel: false, circular: true });
       break;
     }
 

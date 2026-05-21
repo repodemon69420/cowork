@@ -1,4 +1,4 @@
-import { Task, TaskPriority, TaskStatus, TaskType } from './types.js';
+import { Task, TaskPriority, TaskStatus, TaskType, ParseResult, ValidationWarning } from './types.js';
 
 const VALID_PRIORITIES: TaskPriority[] = ['high', 'medium', 'low'];
 const VALID_TYPES: TaskType[] = ['code', 'research', 'docs', 'refactor', 'test', 'design'];
@@ -39,8 +39,102 @@ function extractDependsOn(lines: string[]): string[] | undefined {
   return undefined;
 }
 
-export function parseTasksFile(content: string): Task[] {
+function collectWarnings(
+  title: string,
+  rawPriority: string,
+  resolvedPriority: TaskPriority,
+  rawType: string,
+  resolvedType: TaskType,
+  context: string,
+): ValidationWarning[] {
+  const warnings: ValidationWarning[] = [];
+
+  if (rawPriority === '') {
+    warnings.push({
+      taskTitle: title,
+      field: 'priority',
+      message: `Missing priority, defaulting to '${resolvedPriority}'`,
+    });
+  } else if (rawPriority.toLowerCase() !== resolvedPriority) {
+    warnings.push({
+      taskTitle: title,
+      field: 'priority',
+      message: `Unrecognized priority '${rawPriority}', defaulting to '${resolvedPriority}'`,
+    });
+  }
+
+  if (rawType === '') {
+    warnings.push({
+      taskTitle: title,
+      field: 'type',
+      message: `Missing type, defaulting to '${resolvedType}'`,
+    });
+  } else if (rawType.toLowerCase() !== resolvedType) {
+    warnings.push({
+      taskTitle: title,
+      field: 'type',
+      message: `Unrecognized type '${rawType}', defaulting to '${resolvedType}'`,
+    });
+  }
+
+  if (context === '') {
+    warnings.push({
+      taskTitle: title,
+      field: 'context',
+      message: 'Context is empty',
+    });
+  }
+
+  return warnings;
+}
+
+function collectDependencyWarnings(
+  tasks: readonly Task[],
+): ValidationWarning[] {
+  const titleSet = new Set(tasks.map(t => t.title));
+  const warnings: ValidationWarning[] = [];
+
+  for (const task of tasks) {
+    if (task.dependsOn) {
+      for (const dep of task.dependsOn) {
+        if (!titleSet.has(dep)) {
+          warnings.push({
+            taskTitle: task.title,
+            field: 'dependsOn',
+            message: `Dependency '${dep}' does not match any task title`,
+          });
+        }
+      }
+    }
+  }
+
+  return warnings;
+}
+
+function collectDuplicateTitleWarnings(
+  tasks: readonly Task[],
+): ValidationWarning[] {
+  const seen = new Set<string>();
+  const warnings: ValidationWarning[] = [];
+
+  for (const task of tasks) {
+    if (seen.has(task.title)) {
+      warnings.push({
+        taskTitle: task.title,
+        field: 'title',
+        message: `Duplicate task title '${task.title}'`,
+      });
+    } else {
+      seen.add(task.title);
+    }
+  }
+
+  return warnings;
+}
+
+export function parseTasksFile(content: string): ParseResult {
   const tasks: Task[] = [];
+  const warnings: ValidationWarning[] = [];
   const sections = content.split(/^## /m).filter(Boolean);
 
   for (const section of sections) {
@@ -54,10 +148,14 @@ export function parseTasksFile(content: string): Task[] {
     const title = headerMatch[2].trim();
     const bodyLines = lines.slice(1);
 
-    const priority = parsePriority(extractField(bodyLines, 'priority'));
-    const type = parseType(extractField(bodyLines, 'type'));
+    const rawPriority = extractField(bodyLines, 'priority');
+    const rawType = extractField(bodyLines, 'type');
+    const priority = parsePriority(rawPriority);
+    const type = parseType(rawType);
     const context = extractField(bodyLines, 'context') || '';
     const dependsOn = extractDependsOn(bodyLines);
+
+    warnings.push(...collectWarnings(title, rawPriority, priority, rawType, type, context));
 
     const task: Task = { title, priority, type, context, status };
     if (dependsOn && dependsOn.length > 0) {
@@ -67,5 +165,12 @@ export function parseTasksFile(content: string): Task[] {
     tasks.push(task);
   }
 
-  return tasks;
+  warnings.push(...collectDuplicateTitleWarnings(tasks));
+  warnings.push(...collectDependencyWarnings(tasks));
+
+  return { tasks, warnings };
+}
+
+export function parseTasksFileSimple(content: string): Task[] {
+  return parseTasksFile(content).tasks;
 }

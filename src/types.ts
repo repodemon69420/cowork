@@ -16,6 +16,7 @@ export interface Task {
 export interface ExecutionBatch {
   tasks: Task[];
   parallel: boolean;
+  circular?: boolean;
 }
 
 export interface SessionResult {
@@ -24,4 +25,15 @@ export interface SessionResult {
   skipped: Task[];
   startTime: Date;
   endTime: Date;
+}
+
+export interface ValidationWarning {
+  taskTitle: string;
+  field: string;
+  message: string;
+}
+
+export interface ParseResult {
+  tasks: Task[];
+  warnings: ValidationWarning[];
 }

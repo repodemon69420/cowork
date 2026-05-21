@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildExecutionPlan } from './scheduler.js';
+import { buildExecutionPlan, detectCircularDependencies } from './scheduler.js';
 import { Task } from './types.js';
 
 function makeTask(overrides: Partial<Task> = {}): Task {
@@ -117,14 +117,15 @@ describe('buildExecutionPlan', () => {
     expect(plan[0].tasks[0].title).toBe('Run tests');
   });
 
-  it('circular/unresolvable dependencies still get scheduled', () => {
+  it('circular dependencies result in error batch with circular flag', () => {
     const tasks = [
       makeTask({ title: 'Task A', dependsOn: ['Task B'] }),
       makeTask({ title: 'Task B', dependsOn: ['Task A'] }),
     ];
     const plan = buildExecutionPlan(tasks);
-    // Should still produce at least one batch with both tasks
     expect(plan.length).toBeGreaterThan(0);
+    const lastBatch = plan[plan.length - 1];
+    expect(lastBatch.circular).toBe(true);
     const allScheduled = plan.flatMap(b => b.tasks);
     expect(allScheduled).toHaveLength(2);
     const titles = allScheduled.map(t => t.title).sort();
@@ -158,5 +159,117 @@ describe('buildExecutionPlan', () => {
     // Second batch has the dependent task
     expect(plan[1].tasks).toHaveLength(1);
     expect(plan[1].tasks[0].title).toBe('Depends on A');
+  });
+
+  it('buildExecutionPlan marks circular batch but not normal batches', () => {
+    const tasks = [
+      makeTask({ title: 'Normal', priority: 'high' }),
+      makeTask({ title: 'Cycle A', dependsOn: ['Cycle B'] }),
+      makeTask({ title: 'Cycle B', dependsOn: ['Cycle A'] }),
+    ];
+    const plan = buildExecutionPlan(tasks);
+    expect(plan).toHaveLength(2);
+    expect(plan[0].circular).toBeUndefined();
+    expect(plan[0].tasks[0].title).toBe('Normal');
+    expect(plan[1].circular).toBe(true);
+    const circularTitles = plan[1].tasks.map(t => t.title).sort();
+    expect(circularTitles).toEqual(['Cycle A', 'Cycle B']);
+  });
+});
+
+describe('detectCircularDependencies', () => {
+  it('returns empty array when there are no cycles', () => {
+    const tasks = [
+      makeTask({ title: 'Task A', priority: 'high' }),
+      makeTask({ title: 'Task B', priority: 'medium', dependsOn: ['Task A'] }),
+      makeTask({ title: 'Task C', priority: 'low', dependsOn: ['Task B'] }),
+    ];
+    const cycles = detectCircularDependencies(tasks);
+    expect(cycles).toEqual([]);
+  });
+
+  it('detects a self-referencing task (A depends on A)', () => {
+    const tasks = [
+      makeTask({ title: 'Task A', dependsOn: ['Task A'] }),
+    ];
+    const cycles = detectCircularDependencies(tasks);
+    expect(cycles).toHaveLength(1);
+    expect(cycles[0]).toContain('Task A');
+  });
+
+  it('detects a two-node cycle (A→B→A)', () => {
+    const tasks = [
+      makeTask({ title: 'Task A', dependsOn: ['Task B'] }),
+      makeTask({ title: 'Task B', dependsOn: ['Task A'] }),
+    ];
+    const cycles = detectCircularDependencies(tasks);
+    expect(cycles).toHaveLength(1);
+    expect(cycles[0]).toContain('Task A');
+    expect(cycles[0]).toContain('Task B');
+  });
+
+  it('detects a longer chain cycle (A→B→C→A)', () => {
+    const tasks = [
+      makeTask({ title: 'Task A', dependsOn: ['Task B'] }),
+      makeTask({ title: 'Task B', dependsOn: ['Task C'] }),
+      makeTask({ title: 'Task C', dependsOn: ['Task A'] }),
+    ];
+    const cycles = detectCircularDependencies(tasks);
+    expect(cycles).toHaveLength(1);
+    expect(cycles[0]).toContain('Task A');
+    expect(cycles[0]).toContain('Task B');
+    expect(cycles[0]).toContain('Task C');
+  });
+
+  it('returns empty array for a mix of valid tasks with no cycles', () => {
+    const tasks = [
+      makeTask({ title: 'Task A' }),
+      makeTask({ title: 'Task B', dependsOn: ['Task A'] }),
+      makeTask({ title: 'Task C' }),
+      makeTask({ title: 'Task D', dependsOn: ['Task B', 'Task C'] }),
+    ];
+    const cycles = detectCircularDependencies(tasks);
+    expect(cycles).toEqual([]);
+  });
+
+  it('detects cycles while valid tasks exist alongside', () => {
+    const tasks = [
+      makeTask({ title: 'Valid 1' }),
+      makeTask({ title: 'Valid 2', dependsOn: ['Valid 1'] }),
+      makeTask({ title: 'Cycle A', dependsOn: ['Cycle B'] }),
+      makeTask({ title: 'Cycle B', dependsOn: ['Cycle A'] }),
+    ];
+    const cycles = detectCircularDependencies(tasks);
+    expect(cycles).toHaveLength(1);
+    expect(cycles[0]).toContain('Cycle A');
+    expect(cycles[0]).toContain('Cycle B');
+    // Valid tasks should not appear in any cycle
+    const allCycleTitles = cycles.flat();
+    expect(allCycleTitles).not.toContain('Valid 1');
+    expect(allCycleTitles).not.toContain('Valid 2');
+  });
+
+  it('detects multiple independent cycles', () => {
+    const tasks = [
+      makeTask({ title: 'A1', dependsOn: ['A2'] }),
+      makeTask({ title: 'A2', dependsOn: ['A1'] }),
+      makeTask({ title: 'B1', dependsOn: ['B2'] }),
+      makeTask({ title: 'B2', dependsOn: ['B3'] }),
+      makeTask({ title: 'B3', dependsOn: ['B1'] }),
+    ];
+    const cycles = detectCircularDependencies(tasks);
+    expect(cycles).toHaveLength(2);
+    const cycleLengths = cycles.map(c => c.length).sort();
+    expect(cycleLengths).toEqual([2, 3]);
+  });
+
+  it('does not mutate the input tasks array', () => {
+    const tasks = [
+      makeTask({ title: 'Task A', dependsOn: ['Task B'] }),
+      makeTask({ title: 'Task B', dependsOn: ['Task A'] }),
+    ];
+    const tasksCopy = JSON.parse(JSON.stringify(tasks));
+    detectCircularDependencies(tasks);
+    expect(tasks).toEqual(tasksCopy);
   });
 });

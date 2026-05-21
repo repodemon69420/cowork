@@ -14,3 +14,39 @@
 **Depends on:** Scaffold the project structure
 
 ---
+
+## [x] Detect circular dependencies in the scheduler
+**Priority:** high
+**Type:** code
+**Context:** Add `detectCircularDependencies()` function to scheduler, mark circular batches.
+
+---
+
+## [x] Add a task writer module for updating TASKS.md on disk
+**Priority:** high
+**Type:** code
+**Context:** Create `src/writer.ts` with `updateTaskStatus` and `appendTask` functions.
+
+---
+
+## [x] Add a GitHub Actions CI workflow for tests and linting
+**Priority:** medium
+**Type:** code
+**Context:** Create `.github/workflows/ci.yml` with typecheck, lint, test:coverage.
+
+---
+
+## [x] Validate task definitions during parsing
+**Priority:** medium
+**Type:** code
+**Context:** Change `parseTasksFile` to return `ParseResult` with validation warnings.
+
+---
+
+## [ ] Build the CLI entry point
+**Priority:** high
+**Type:** code
+**Context:** Create `src/cli.ts` with `run`, `status`, and `report` subcommands.
+**Depends on:** Add a task writer module for updating TASKS.md on disk
+
+---
