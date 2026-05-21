@@ -36,7 +36,7 @@
 
 ---
 
-## [ ] Build the CLI entry point
+## [x] Build the CLI entry point
 **Priority:** high
 **Type:** code
 **Context:** There is no way to run this tool from the command line. Create `src/cli.ts` that uses Node.js built-in `parseArgs` (from `node:util`) with subcommands: `cowork run` -- reads TASKS.md (default `./TASKS.md`, override with `--file`), builds the execution plan, prints the batches to stdout as a summary, and exits (actual agent dispatching is a later task); `cowork status` -- reads TASKS.md and prints a table of tasks with their status, priority, and dependencies; `cowork report` -- reads a SessionResult JSON from stdin or `--input` file and writes the markdown report to stdout. Add a `"bin": { "cowork": "./dist/cli.js" }` entry to `package.json` and a hashbang to `cli.ts`. Add at least 5 tests using child_process `execFile` against the built CLI. This task depends on the writer module being available so `run` can mark tasks complete.

@@ -43,7 +43,7 @@
 
 ---
 
-## [ ] Build the CLI entry point
+## [x] Build the CLI entry point
 **Priority:** high
 **Type:** code
 **Context:** Create `src/cli.ts` with `run`, `status`, and `report` subcommands.

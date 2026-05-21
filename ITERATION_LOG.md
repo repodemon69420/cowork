@@ -4,21 +4,26 @@
 
 ---
 
-## Iteration 3 — Batch 1: Core features and infrastructure
+## Iteration 3 — Core features, infrastructure, and CLI
 **Status:** PASSED
-**Tasks:** Circular dep detection, task writer, CI workflow, parser validation
-**Tests:** 102 pass, 0 fail (40 new tests added)
-**Coverage:** 98.58% statements
+**Tasks:** Circular dep detection, task writer, CI workflow, parser validation, CLI entry point
+**Tests:** 128 pass, 0 fail (66 new tests added)
+**Coverage:** 83.2% overall, 95%+ on all logic modules
 **Quality Gate:** PASSED (all criteria met)
-**Commit:** eeffe71
 
-**Changes:**
+**Batch 1 (parallel — 4 workers):**
 - Added `detectCircularDependencies()` to scheduler with DFS cycle detection (10 new tests)
 - Created src/writer.ts: `updateTaskStatus` and `appendTask` for disk I/O (15 new tests)
 - Created .github/workflows/ci.yml: Node 20+22 matrix, typecheck, lint, test:coverage
 - Refactored parseTasksFile to return `ParseResult` with validation warnings (16 new tests)
 - Added `parseTasksFileSimple` convenience wrapper for backward compatibility
 - Added `@types/node` dev dependency, fixed lint unused import
+
+**Batch 2 (sequential — 1 worker):**
+- Created src/cli.ts: CLI entry point with run/status/report subcommands
+- Created src/cli-handlers.ts: pure testable handler functions
+- Added `bin` field to package.json for `cowork` command
+- 26 new CLI handler tests covering all subcommands and edge cases
 
 ---
 
