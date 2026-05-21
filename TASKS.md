@@ -57,3 +57,41 @@
 **Context:** `parseTasksFile` in `src/parser.ts` silently defaults missing or invalid fields -- an empty priority becomes `'medium'`, an unrecognized type becomes `'code'`, and a missing context becomes an empty string. This hides user mistakes in TASKS.md. Add a `ValidationWarning` type (`{ taskTitle: string; field: string; message: string }`) and change `parseTasksFile` to return `{ tasks: Task[]; warnings: ValidationWarning[] }`. Collect warnings when: a priority/type value is unrecognized and gets defaulted, context is empty, a `dependsOn` reference does not match any other task title in the file, or a task title is duplicated. Existing callers that destructure only `tasks` must still work, so also export a convenience wrapper `parseTasksFileSimple(content: string): Task[]` that drops warnings. Update all existing tests to use the new return shape or the simple wrapper. Add new tests specifically for each warning case.
 
 ---
+
+## [ ] Add configuration file support
+**Priority:** high
+**Type:** code
+**Context:** The tool has no way to configure behavior without CLI flags. Create `src/config.ts` that exports: (1) a `CoworkConfig` interface with fields: `tasksFile` (string, default `'./TASKS.md'`), `outputFormat` (`'markdown' | 'json'`, default `'markdown'`), `logDir` (string, default `'./.cowork/logs'`), `concurrency` (number, default `4`), `timeout` (number in ms, default `300000`); (2) `loadConfig(cwd?: string): Promise<CoworkConfig>` that looks for `cowork.config.json` in the given directory (or `process.cwd()`), merges it with defaults using a shallow merge, and validates the values (e.g., concurrency must be a positive integer, timeout must be positive); (3) `resolveConfig(overrides: Partial<CoworkConfig>, fileConfig: Partial<CoworkConfig>): CoworkConfig` that merges CLI overrides > file config > defaults in that priority order. If the config file does not exist, silently fall back to defaults. If the file exists but contains invalid JSON, throw a descriptive error. Add the new types and functions to `src/index.ts` exports. Write at least 10 tests covering: defaults when no file exists, partial config merges, invalid JSON errors, invalid field values, CLI overrides taking precedence, and edge cases like empty objects.
+
+---
+
+## [ ] Build the task executor module
+**Priority:** high
+**Type:** code
+**Context:** The CLI can display an execution plan via `cowork run` but cannot actually execute tasks. Create `src/executor.ts` that exports: (1) `TaskExecutor` class that takes a `CoworkConfig` and an `ExecutionBatch[]` from the scheduler; (2) an `execute()` method that processes batches sequentially, running tasks within each batch in parallel (up to `config.concurrency`), calling a user-supplied `taskRunner: (task: Task) => Promise<TaskRunResult>` callback for each task; (3) a `TaskRunResult` interface `{ success: boolean; output: string; durationMs: number; error?: string }` added to `src/types.ts`; (4) the executor should enforce `config.timeout` per task using `AbortController` with `setTimeout`, marking timed-out tasks as `failed` with a timeout error message; (5) after each task completes, call `updateTaskStatus` from the writer module to persist the status to disk; (6) collect all results into a `SessionResult` and return it. The executor must handle errors gracefully -- if one task in a parallel batch fails, other tasks in the same batch should still complete, but tasks in later batches that depend on the failed task should be skipped. Wire the executor into `cli.ts` by adding an `--execute` flag to the `run` subcommand (when omitted, keep current dry-run behavior). Export all new types and the `TaskExecutor` class from `src/index.ts`.
+**Depends on:** Add configuration file support
+
+---
+
+## [ ] Add structured JSON output to the reporter
+**Priority:** medium
+**Type:** code
+**Context:** The reporter in `src/reporter.ts` only generates markdown output, which makes it hard for other tools to consume session results programmatically. Add a `generateJsonReport(result: SessionResult, commits: string[]): string` function that returns a pretty-printed JSON string with the structure: `{ summary: { duration: string, totalTasks: number, completed: number, failed: number, skipped: number }, tasks: { completed: Task[], failed: Task[], skipped: Task[] }, commits: string[], generatedAt: string }`. Update `reportHandler` in `src/cli-handlers.ts` to accept a `--format` flag (`'markdown' | 'json'`, default `'markdown'`) and call the appropriate generator. Update the CLI argument parsing in `src/cli.ts` to pass `--format` through to the report handler. Add the new function to `src/index.ts` exports. Add at least 8 tests: JSON output structure validation, empty results, results with tasks in all categories, commit list inclusion, the `generatedAt` field being a valid ISO date, and the format flag routing in the report handler.
+
+---
+
+## [ ] Write integration tests for the task executor
+**Priority:** medium
+**Type:** test
+**Context:** The executor module needs thorough integration testing beyond its unit tests. Create `src/executor.test.ts` with at least 12 tests covering: (1) a simple single-batch execution with one task that succeeds; (2) parallel execution of multiple independent tasks in a batch; (3) sequential batch execution where batch 2 depends on batch 1; (4) a task that times out and is marked as failed; (5) a task that throws an error and is marked as failed while sibling tasks still complete; (6) downstream tasks being skipped when an upstream dependency fails; (7) the writer module being called after each task to persist status; (8) the returned `SessionResult` having correct `completed`, `failed`, and `skipped` arrays; (9) concurrency limiting (e.g., config.concurrency=1 forces serial execution even in parallel batches); (10) an empty batch list returning an empty session result; (11) the `--execute` flag on the CLI triggering actual execution vs dry-run; (12) timeout edge case where task finishes just before the deadline. Use a mock `taskRunner` callback that resolves/rejects based on test needs. Use `vi.useFakeTimers()` for timeout tests.
+**Depends on:** Build the task executor module
+
+---
+
+## [ ] Add session history logging
+**Priority:** low
+**Type:** code
+**Context:** There is no record of past sessions once the process exits. Create `src/history.ts` that exports: (1) `saveSessionLog(logDir: string, result: SessionResult, commits: string[]): Promise<string>` that writes the JSON report (using `generateJsonReport` from the reporter) to `<logDir>/<ISO-timestamp>.json` and returns the file path, creating the `logDir` directory recursively if it does not exist; (2) `listSessionLogs(logDir: string): Promise<string[]>` that returns an array of log file paths sorted by timestamp descending; (3) `loadSessionLog(filePath: string): Promise<SessionResult>` that reads and parses a log file back into a `SessionResult`. Add a `cowork history` subcommand to `cli.ts` that lists past sessions with their date, duration, and task completion counts in a table (reuse the `padRight` helper from `cli-handlers.ts`). The default `logDir` should come from `CoworkConfig`. Export all new functions from `src/index.ts`. Write at least 8 tests using temp directories: saving and loading a log round-trips correctly, `listSessionLogs` returns files in reverse chronological order, missing `logDir` is created automatically, corrupt log files throw descriptive errors, empty log directory returns an empty list.
+**Depends on:** Add structured JSON output to the reporter, Add configuration file support
+
+---
