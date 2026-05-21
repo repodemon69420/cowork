@@ -215,6 +215,64 @@ function formatDuration(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+const subcommandHelp: Record<string, string> = {
+  run: `cowork run — Parse tasks and display execution plan
+
+Options:
+  --file <path>     Path to TASKS.md (default: from config or ./TASKS.md)
+  --execute         Actually execute tasks (default: dry run)
+
+Examples:
+  cowork run
+  cowork run --file ./MY_TASKS.md --execute`,
+
+  status: `cowork status — Print task status table
+
+Options:
+  --file <path>     Path to TASKS.md (default: from config or ./TASKS.md)
+
+Examples:
+  cowork status
+  cowork status --file ./MY_TASKS.md`,
+
+  report: `cowork report — Generate markdown report from session JSON
+
+Options:
+  --input <path>    Path to session result JSON (required)
+  --format <type>   Output format: markdown or json (default: markdown)
+
+Examples:
+  cowork report --input ./session.json
+  cowork report --input ./session.json --format json`,
+
+  history: `cowork history — Show session history log
+
+Options:
+  --log-dir <path>  Path to log directory (default: from config or ./.cowork/logs)
+
+Examples:
+  cowork history
+  cowork history --log-dir ./my-logs`,
+
+  add: `cowork add — Add a new task to the tasks file
+
+Options:
+  --title <text>       Task title (required)
+  --priority <level>   Priority: high, medium, or low (default: medium)
+  --type <type>        Task type: code, research, docs, refactor, test, or design (default: code)
+  --context <text>     Additional context for the task (default: "")
+  --depends-on <list>  Comma-separated list of dependency task titles
+  --file <path>        Path to TASKS.md (default: from config or ./TASKS.md)
+
+Examples:
+  cowork add --title "Fix login bug" --priority high --type code
+  cowork add --title "Write docs" --depends-on "Fix login bug,Build API"`,
+};
+
+export function getSubcommandHelp(name: string): string | undefined {
+  return subcommandHelp[name];
+}
+
 export function createProgressFormatter(): (event: ProgressEvent) => string {
   return (event: ProgressEvent): string => {
     switch (event.type) {

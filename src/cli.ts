@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
 import { readFile } from 'node:fs/promises';
-import { runHandler, statusHandler, reportHandler, historyHandler, addHandler } from './cli-handlers.js';
+import { runHandler, statusHandler, reportHandler, historyHandler, addHandler, getSubcommandHelp } from './cli-handlers.js';
 import { listSessionLogs, loadSessionLog } from './history.js';
 import { loadConfig, resolveConfig } from './config.js';
 import type { CoworkConfig } from './config.js';
@@ -24,7 +24,9 @@ Options:
   --file <path>     Path to TASKS.md (default: ./TASKS.md)
   --input <path>    Path to session result JSON (for report command)
   --log-dir <path>  Path to log directory (for history command)
-  --help            Show this help message`;
+  --help            Show this help message
+
+Run 'cowork <command> --help' for command-specific help.`;
 
   console.log(usage);
 }
@@ -56,6 +58,14 @@ async function main(): Promise<void> {
   }
 
   const subcommandArgs = args.slice(1);
+
+  if (subcommandArgs.includes('--help') || subcommandArgs.includes('-h')) {
+    const helpText = getSubcommandHelp(subcommand);
+    if (helpText) {
+      console.log(helpText);
+      process.exit(0);
+    }
+  }
 
   if (subcommand === 'run') {
     const { values } = parseArgs({

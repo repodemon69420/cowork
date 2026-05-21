@@ -112,7 +112,7 @@
 
 ---
 
-## [ ] Add per-subcommand --help with usage examples
+## [x] Add per-subcommand --help with usage examples
 **Priority:** medium
 **Type:** code
 **Context:** The CLI has a global `printUsage()` that lists subcommands, but running `cowork run --help` throws a `parseArgs` error instead of showing run-specific help. Each subcommand should respond to `--help` (and `-h`) with its own usage block that includes: a one-line description, all accepted flags with types and defaults, and 1-2 concrete usage examples. Refactor `src/cli.ts` so that each subcommand branch checks for `--help`/`-h` in `subcommandArgs` before calling `parseArgs` (since `parseArgs` with `strict: true` rejects `--help` as an unknown option). When detected, print the subcommand-specific help text and exit 0. The help text for each subcommand should be defined in a new `subcommandHelp` record in `src/cli.ts` keyed by subcommand name, making it easy to maintain as new subcommands are added. Cover all existing subcommands (`run`, `status`, `report`, `history`) plus the new `add` subcommand. Also update the global `printUsage()` to mention that `cowork <command> --help` shows command-specific help. Write at least 6 tests: `cowork run --help` exits 0 and includes `--file` and `--execute` in output, `cowork status -h` exits 0, `cowork report --help` documents `--input` and `--format`, `cowork add --help` documents `--title`, unknown subcommand still shows global help and exits 1, and `cowork --help` mentions per-subcommand help.
