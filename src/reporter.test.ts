@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { formatTaskSection, generateReport } from './reporter.js';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { formatTaskSection, generateReport, generateJsonReport } from './reporter.js';
 import { Task, SessionResult } from './types.js';
 
 function makeTask(overrides: Partial<Task> = {}): Task {
@@ -158,5 +158,121 @@ describe('generateReport', () => {
     });
     const report = generateReport(result, []);
     expect(report).toContain('**Duration**: 1h 0m');
+  });
+});
+
+describe('generateJsonReport', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('has all expected top-level fields', () => {
+    vi.setSystemTime(new Date('2026-05-20T12:00:00Z'));
+    const result = makeResult();
+    const json = JSON.parse(generateJsonReport(result, []));
+    expect(json).toHaveProperty('summary');
+    expect(json).toHaveProperty('tasks');
+    expect(json).toHaveProperty('commits');
+    expect(json).toHaveProperty('generatedAt');
+    vi.useRealTimers();
+  });
+
+  it('returns correct structure for empty results', () => {
+    vi.setSystemTime(new Date('2026-05-20T12:00:00Z'));
+    const result = makeResult();
+    const json = JSON.parse(generateJsonReport(result, []));
+    expect(json.summary.totalTasks).toBe(0);
+    expect(json.summary.completed).toBe(0);
+    expect(json.summary.failed).toBe(0);
+    expect(json.summary.skipped).toBe(0);
+    expect(json.tasks.completed).toEqual([]);
+    expect(json.tasks.failed).toEqual([]);
+    expect(json.tasks.skipped).toEqual([]);
+    expect(json.commits).toEqual([]);
+    vi.useRealTimers();
+  });
+
+  it('includes tasks in all categories', () => {
+    vi.setSystemTime(new Date('2026-05-20T12:00:00Z'));
+    const result = makeResult({
+      completed: [makeTask({ title: 'Done', status: 'completed' })],
+      failed: [makeTask({ title: 'Broken', status: 'failed' })],
+      skipped: [makeTask({ title: 'Later', status: 'skipped' })],
+    });
+    const json = JSON.parse(generateJsonReport(result, []));
+    expect(json.tasks.completed).toHaveLength(1);
+    expect(json.tasks.completed[0].title).toBe('Done');
+    expect(json.tasks.failed).toHaveLength(1);
+    expect(json.tasks.failed[0].title).toBe('Broken');
+    expect(json.tasks.skipped).toHaveLength(1);
+    expect(json.tasks.skipped[0].title).toBe('Later');
+    vi.useRealTimers();
+  });
+
+  it('includes commit list', () => {
+    vi.setSystemTime(new Date('2026-05-20T12:00:00Z'));
+    const result = makeResult({
+      completed: [makeTask({ title: 'Task', status: 'completed' })],
+    });
+    const commits = ['abc1234 First', 'def5678 Second'];
+    const json = JSON.parse(generateJsonReport(result, commits));
+    expect(json.commits).toEqual(['abc1234 First', 'def5678 Second']);
+    vi.useRealTimers();
+  });
+
+  it('produces a valid ISO 8601 generatedAt date', () => {
+    vi.setSystemTime(new Date('2026-05-20T12:00:00.000Z'));
+    const result = makeResult();
+    const json = JSON.parse(generateJsonReport(result, []));
+    const parsed = new Date(json.generatedAt);
+    expect(parsed.toISOString()).toBe(json.generatedAt);
+    vi.useRealTimers();
+  });
+
+  it('has correct summary counts', () => {
+    vi.setSystemTime(new Date('2026-05-20T12:00:00Z'));
+    const result = makeResult({
+      completed: [
+        makeTask({ title: 'A', status: 'completed' }),
+        makeTask({ title: 'B', status: 'completed' }),
+      ],
+      failed: [makeTask({ title: 'C', status: 'failed' })],
+      skipped: [
+        makeTask({ title: 'D', status: 'skipped' }),
+        makeTask({ title: 'E', status: 'skipped' }),
+        makeTask({ title: 'F', status: 'skipped' }),
+      ],
+    });
+    const json = JSON.parse(generateJsonReport(result, []));
+    expect(json.summary.totalTasks).toBe(6);
+    expect(json.summary.completed).toBe(2);
+    expect(json.summary.failed).toBe(1);
+    expect(json.summary.skipped).toBe(3);
+    vi.useRealTimers();
+  });
+
+  it('formats duration the same as markdown reporter', () => {
+    vi.setSystemTime(new Date('2026-05-20T12:00:00Z'));
+    const result = makeResult({
+      startTime: new Date('2026-01-15T14:00:00Z'),
+      endTime: new Date('2026-01-15T22:30:00Z'),
+    });
+    const json = JSON.parse(generateJsonReport(result, []));
+    expect(json.summary.duration).toBe('8h 30m');
+
+    const markdownReport = generateReport(result, []);
+    expect(markdownReport).toContain(`**Duration**: ${json.summary.duration}`);
+    vi.useRealTimers();
+  });
+
+  it('returns pretty-printed JSON', () => {
+    vi.setSystemTime(new Date('2026-05-20T12:00:00Z'));
+    const result = makeResult();
+    const output = generateJsonReport(result, []);
+    expect(output).toContain('\n');
+    expect(output.startsWith('{')).toBe(true);
+    // Verify it's indented with 2 spaces
+    expect(output).toContain('  "summary"');
+    vi.useRealTimers();
   });
 });

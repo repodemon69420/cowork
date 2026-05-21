@@ -58,7 +58,7 @@
 
 ---
 
-## [ ] Add configuration file support
+## [x] Add configuration file support
 **Priority:** high
 **Type:** code
 **Context:** The tool has no way to configure behavior without CLI flags. Create `src/config.ts` that exports: (1) a `CoworkConfig` interface with fields: `tasksFile` (string, default `'./TASKS.md'`), `outputFormat` (`'markdown' | 'json'`, default `'markdown'`), `logDir` (string, default `'./.cowork/logs'`), `concurrency` (number, default `4`), `timeout` (number in ms, default `300000`); (2) `loadConfig(cwd?: string): Promise<CoworkConfig>` that looks for `cowork.config.json` in the given directory (or `process.cwd()`), merges it with defaults using a shallow merge, and validates the values (e.g., concurrency must be a positive integer, timeout must be positive); (3) `resolveConfig(overrides: Partial<CoworkConfig>, fileConfig: Partial<CoworkConfig>): CoworkConfig` that merges CLI overrides > file config > defaults in that priority order. If the config file does not exist, silently fall back to defaults. If the file exists but contains invalid JSON, throw a descriptive error. Add the new types and functions to `src/index.ts` exports. Write at least 10 tests covering: defaults when no file exists, partial config merges, invalid JSON errors, invalid field values, CLI overrides taking precedence, and edge cases like empty objects.
@@ -73,7 +73,7 @@
 
 ---
 
-## [ ] Add structured JSON output to the reporter
+## [x] Add structured JSON output to the reporter
 **Priority:** medium
 **Type:** code
 **Context:** The reporter in `src/reporter.ts` only generates markdown output, which makes it hard for other tools to consume session results programmatically. Add a `generateJsonReport(result: SessionResult, commits: string[]): string` function that returns a pretty-printed JSON string with the structure: `{ summary: { duration: string, totalTasks: number, completed: number, failed: number, skipped: number }, tasks: { completed: Task[], failed: Task[], skipped: Task[] }, commits: string[], generatedAt: string }`. Update `reportHandler` in `src/cli-handlers.ts` to accept a `--format` flag (`'markdown' | 'json'`, default `'markdown'`) and call the appropriate generator. Update the CLI argument parsing in `src/cli.ts` to pass `--format` through to the report handler. Add the new function to `src/index.ts` exports. Add at least 8 tests: JSON output structure validation, empty results, results with tasks in all categories, commit list inclusion, the `generatedAt` field being a valid ISO date, and the format flag routing in the report handler.

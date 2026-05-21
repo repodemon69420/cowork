@@ -28,6 +28,30 @@ export function formatTaskSection(task: Task): string {
   return lines.join('\n');
 }
 
+export function generateJsonReport(result: SessionResult, commits: string[]): string {
+  const duration = formatDuration(result.startTime, result.endTime);
+  const totalTasks = result.completed.length + result.failed.length + result.skipped.length;
+
+  const report = {
+    summary: {
+      duration,
+      totalTasks,
+      completed: result.completed.length,
+      failed: result.failed.length,
+      skipped: result.skipped.length,
+    },
+    tasks: {
+      completed: result.completed,
+      failed: result.failed,
+      skipped: result.skipped,
+    },
+    commits: [...commits],
+    generatedAt: new Date().toISOString(),
+  };
+
+  return JSON.stringify(report, null, 2);
+}
+
 export function generateReport(result: SessionResult, commits: string[]): string {
   const duration = formatDuration(result.startTime, result.endTime);
   const total = result.completed.length + result.failed.length + result.skipped.length;

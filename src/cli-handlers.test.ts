@@ -241,4 +241,27 @@ describe('reportHandler', () => {
     expect(result).toContain('Overnight Session Report');
     expect(result).not.toContain('Commits');
   });
+
+  it('returns markdown by default when format is not specified', () => {
+    const result = reportHandler(validJson);
+    expect(result).toContain('# Overnight Session Report');
+  });
+
+  it('returns markdown when format is "markdown"', () => {
+    const result = reportHandler(validJson, 'markdown');
+    expect(result).toContain('# Overnight Session Report');
+  });
+
+  it('returns JSON when format is "json"', () => {
+    const result = reportHandler(validJson, 'json');
+    const parsed = JSON.parse(result);
+    expect(parsed).toHaveProperty('summary');
+    expect(parsed).toHaveProperty('tasks');
+    expect(parsed).toHaveProperty('commits');
+    expect(parsed).toHaveProperty('generatedAt');
+    expect(parsed.summary.completed).toBe(1);
+    expect(parsed.summary.skipped).toBe(1);
+    expect(parsed.summary.totalTasks).toBe(2);
+    expect(parsed.commits).toEqual(['abc1234 Initial commit', 'def5678 Fix bug']);
+  });
 });

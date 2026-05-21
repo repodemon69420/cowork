@@ -75,6 +75,7 @@ async function main(): Promise<void> {
       args: subcommandArgs,
       options: {
         input: { type: 'string' },
+        format: { type: 'string', default: 'markdown' },
       },
       strict: true,
     });
@@ -93,7 +94,7 @@ async function main(): Promise<void> {
     }
 
     try {
-      const output = reportHandler(content);
+      const output = reportHandler(content, values.format as 'markdown' | 'json');
       console.log(output);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';

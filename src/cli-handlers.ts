@@ -1,6 +1,6 @@
 import { parseTasksFileSimple } from './parser.js';
 import { buildExecutionPlan } from './scheduler.js';
-import { generateReport } from './reporter.js';
+import { generateReport, generateJsonReport } from './reporter.js';
 import { SessionResult, Task } from './types.js';
 
 function formatBatchSummary(batchIndex: number, tasks: Task[], parallel: boolean, circular?: boolean): string {
@@ -103,7 +103,7 @@ function parseSessionResult(json: unknown): SessionResult {
   };
 }
 
-export function reportHandler(jsonInput: string): string {
+export function reportHandler(jsonInput: string, format?: 'markdown' | 'json'): string {
   let parsed: unknown;
   try {
     parsed = JSON.parse(jsonInput);
@@ -121,5 +121,10 @@ export function reportHandler(jsonInput: string): string {
     : [];
 
   const result = parseSessionResult(obj['result'] ?? parsed);
+
+  if (format === 'json') {
+    return generateJsonReport(result, commits);
+  }
+
   return generateReport(result, commits);
 }
