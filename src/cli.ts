@@ -35,11 +35,14 @@ async function main(): Promise<void> {
       args: subcommandArgs,
       options: {
         file: { type: 'string', default: './TASKS.md' },
+        execute: { type: 'boolean', default: false },
       },
       strict: true,
     });
 
     const filePath = values.file as string;
+    const executeFlag = values.execute as boolean;
+
     let content: string;
     try {
       content = await readFile(filePath, 'utf-8');
@@ -48,7 +51,12 @@ async function main(): Promise<void> {
       process.exit(1);
     }
 
-    const output = runHandler(content);
+    if (executeFlag) {
+      console.log('Not implemented yet: --execute requires a real taskRunner.');
+      process.exit(0);
+    }
+
+    const output = runHandler(content, { execute: false });
     console.log(output);
   } else if (subcommand === 'status') {
     const { values } = parseArgs({

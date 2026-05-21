@@ -33,6 +33,13 @@ export interface ValidationWarning {
   message: string;
 }
 
+export interface TaskRunResult {
+  success: boolean;
+  output: string;
+  durationMs: number;
+  error?: string;
+}
+
 export interface ParseResult {
   tasks: Task[];
   warnings: ValidationWarning[];

@@ -65,7 +65,7 @@
 
 ---
 
-## [ ] Build the task executor module
+## [x] Build the task executor module
 **Priority:** high
 **Type:** code
 **Context:** The CLI can display an execution plan via `cowork run` but cannot actually execute tasks. Create `src/executor.ts` that exports: (1) `TaskExecutor` class that takes a `CoworkConfig` and an `ExecutionBatch[]` from the scheduler; (2) an `execute()` method that processes batches sequentially, running tasks within each batch in parallel (up to `config.concurrency`), calling a user-supplied `taskRunner: (task: Task) => Promise<TaskRunResult>` callback for each task; (3) a `TaskRunResult` interface `{ success: boolean; output: string; durationMs: number; error?: string }` added to `src/types.ts`; (4) the executor should enforce `config.timeout` per task using `AbortController` with `setTimeout`, marking timed-out tasks as `failed` with a timeout error message; (5) after each task completes, call `updateTaskStatus` from the writer module to persist the status to disk; (6) collect all results into a `SessionResult` and return it. The executor must handle errors gracefully -- if one task in a parallel batch fails, other tasks in the same batch should still complete, but tasks in later batches that depend on the failed task should be skipped. Wire the executor into `cli.ts` by adding an `--execute` flag to the `run` subcommand (when omitted, keep current dry-run behavior). Export all new types and the `TaskExecutor` class from `src/index.ts`.

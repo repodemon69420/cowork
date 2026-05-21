@@ -10,7 +10,11 @@ function formatBatchSummary(batchIndex: number, tasks: Task[], parallel: boolean
   return [header, ...taskLines].join('\n');
 }
 
-export function runHandler(fileContent: string): string {
+export interface RunHandlerOptions {
+  readonly execute?: boolean;
+}
+
+export function runHandler(fileContent: string, options: RunHandlerOptions = {}): string {
   const tasks = parseTasksFileSimple(fileContent);
 
   if (tasks.length === 0) {
@@ -32,6 +36,11 @@ export function runHandler(fileContent: string): string {
 
   const totalTasks = batches.reduce((sum, b) => sum + b.tasks.length, 0);
   lines.push(`Total: ${totalTasks} task(s) in ${batches.length} batch(es)`);
+
+  if (!options.execute) {
+    lines.push('');
+    lines.push('Dry run complete. Use --execute to run tasks.');
+  }
 
   return lines.join('\n');
 }
