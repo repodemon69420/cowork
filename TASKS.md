@@ -95,3 +95,35 @@
 **Depends on:** Add structured JSON output to the reporter, Add configuration file support
 
 ---
+
+## [ ] Wire configuration file into the CLI
+**Priority:** high
+**Type:** code
+**Context:** The config module (`src/config.ts`) exists with `loadConfig` and `resolveConfig` but the CLI (`src/cli.ts`) ignores it entirely -- every subcommand hardcodes its own defaults (e.g., `'./TASKS.md'` for `--file`, `DEFAULT_CONFIG.logDir` for `--log-dir`) instead of loading `cowork.config.json` and letting CLI flags override it. Refactor `main()` in `src/cli.ts` to: (1) call `loadConfig()` early, before subcommand dispatch, catching and printing config errors with `process.exit(1)`; (2) use `resolveConfig` to merge CLI flag overrides (`--file` maps to `tasksFile`, `--format` to `outputFormat`, `--log-dir` to `logDir`) on top of the file config; (3) pass the resolved `CoworkConfig` into each handler so subcommands use `config.tasksFile` instead of a raw `--file` string, `config.logDir` instead of `--log-dir`, and `config.outputFormat` instead of `--format`; (4) update `runHandler` to accept a `CoworkConfig` so that a future `--execute` implementation can use `config.concurrency` and `config.timeout`; (5) ensure that when no `cowork.config.json` exists, behavior is identical to today (defaults apply, CLI flags still override). Update the handler signatures in `src/cli-handlers.ts` where needed. Add at least 6 tests: config file values flow through to handlers, CLI flags override config file values, missing config file still works, invalid config file prints a user-friendly error and exits, `--file` override takes precedence over `tasksFile` in config, and the resolved config is passed to `runHandler`.
+**Depends on:** Add configuration file support
+
+---
+
+## [ ] Add a CLI `add` subcommand for creating tasks from the terminal
+**Priority:** medium
+**Type:** code
+**Context:** Users must hand-edit TASKS.md to add new tasks, which is error-prone and breaks the Markdown format if done carelessly. The `appendTask` function in `src/writer.ts` already handles the formatting and disk I/O. Add a `cowork add` subcommand to `src/cli.ts` that accepts: `--title <string>` (required), `--priority <high|medium|low>` (default `medium`), `--type <code|test|docs|...>` (default `code`), `--context <string>` (default empty string), and `--depends-on <comma-separated titles>` (optional). The handler should: (1) validate that `--title` is provided and non-empty, printing a clear error and exiting with code 1 if missing; (2) validate `--priority` and `--type` against the allowed values in `src/types.ts`, printing the valid options on error; (3) build a `Task` object with status `'pending'` and call `appendTask` using the resolved `config.tasksFile` path; (4) print a confirmation message like `Added task: "<title>" to <path>`. Create an `addHandler` function in `src/cli-handlers.ts` that takes the validated fields and the file path, calls `appendTask`, and returns the confirmation string. Export `addHandler` from `src/index.ts`. Write at least 8 tests: successful add with all fields, add with only required `--title` (defaults apply), missing `--title` error, invalid `--priority` error listing valid values, invalid `--type` error listing valid values, `--depends-on` with multiple comma-separated values, the appended task round-trips through `parseTasksFileSimple`, and the confirmation message includes the task title.
+**Depends on:** Wire configuration file into the CLI
+
+---
+
+## [ ] Add per-subcommand --help with usage examples
+**Priority:** medium
+**Type:** code
+**Context:** The CLI has a global `printUsage()` that lists subcommands, but running `cowork run --help` throws a `parseArgs` error instead of showing run-specific help. Each subcommand should respond to `--help` (and `-h`) with its own usage block that includes: a one-line description, all accepted flags with types and defaults, and 1-2 concrete usage examples. Refactor `src/cli.ts` so that each subcommand branch checks for `--help`/`-h` in `subcommandArgs` before calling `parseArgs` (since `parseArgs` with `strict: true` rejects `--help` as an unknown option). When detected, print the subcommand-specific help text and exit 0. The help text for each subcommand should be defined in a new `subcommandHelp` record in `src/cli.ts` keyed by subcommand name, making it easy to maintain as new subcommands are added. Cover all existing subcommands (`run`, `status`, `report`, `history`) plus the new `add` subcommand. Also update the global `printUsage()` to mention that `cowork <command> --help` shows command-specific help. Write at least 6 tests: `cowork run --help` exits 0 and includes `--file` and `--execute` in output, `cowork status -h` exits 0, `cowork report --help` documents `--input` and `--format`, `cowork add --help` documents `--title`, unknown subcommand still shows global help and exits 1, and `cowork --help` mentions per-subcommand help.
+**Depends on:** Add a CLI `add` subcommand for creating tasks from the terminal
+
+---
+
+## [ ] Add progress callbacks and live status output during execution
+**Priority:** medium
+**Type:** code
+**Context:** When `cowork run --execute` is invoked, the executor runs silently with no feedback until the entire session completes -- for long-running sessions with many tasks this leaves the user staring at a blank terminal. Add an event-based progress system: (1) define a `ProgressEvent` type in `src/types.ts` as a discriminated union: `{ type: 'batch-start'; batchIndex: number; taskCount: number }`, `{ type: 'task-start'; batchIndex: number; taskTitle: string }`, `{ type: 'task-end'; batchIndex: number; taskTitle: string; result: TaskRunResult }`, `{ type: 'batch-end'; batchIndex: number }`, `{ type: 'session-end'; result: SessionResult }`; (2) add an optional `onProgress?: (event: ProgressEvent) => void` callback parameter to the `TaskExecutor` constructor; (3) emit the appropriate events at each point in the `execute()` method; (4) in `src/cli.ts`, when `--execute` is used, wire up a default `onProgress` handler that prints human-readable lines to stderr (not stdout, so piped JSON output is unaffected): `[batch 1/3] Starting 4 tasks...`, `  [ok] Build the parser (1.2s)`, `  [FAIL] Run linter -- timeout after 300000ms`, `[batch 1/3] Done (3 ok, 1 failed)`, and a final summary line; (5) add a `--quiet` flag to `run` that suppresses progress output. Export `ProgressEvent` from `src/index.ts`. Write at least 8 tests: each event type is emitted at the right time, events fire in correct order for a multi-batch plan, the stderr formatter produces expected strings for success/failure/skip, `--quiet` suppresses output, and the `onProgress` callback being `undefined` causes no errors.
+**Depends on:** Wire configuration file into the CLI
+
+---
