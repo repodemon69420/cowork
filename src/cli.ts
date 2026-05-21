@@ -3,7 +3,8 @@ import { parseArgs } from 'node:util';
 import { readFile } from 'node:fs/promises';
 import { runHandler, statusHandler, reportHandler, historyHandler } from './cli-handlers.js';
 import { listSessionLogs, loadSessionLog } from './history.js';
-import { DEFAULT_CONFIG } from './config.js';
+import { loadConfig, resolveConfig } from './config.js';
+import type { CoworkConfig } from './config.js';
 
 function printUsage(): void {
   const usage = `Usage: cowork <command> [options]
@@ -23,6 +24,14 @@ Options:
   console.log(usage);
 }
 
+function buildCliOverrides(values: Record<string, unknown>): Partial<CoworkConfig> {
+  return {
+    ...(values.file !== undefined ? { tasksFile: values.file as string } : {}),
+    ...(values.format !== undefined ? { outputFormat: values.format as CoworkConfig['outputFormat'] } : {}),
+    ...(values['log-dir'] !== undefined ? { logDir: values['log-dir'] as string } : {}),
+  };
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const subcommand = args[0];
@@ -32,19 +41,30 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
+  let fileConfig: CoworkConfig;
+  try {
+    fileConfig = await loadConfig();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.error(`Error loading config: ${message}`);
+    process.exit(1);
+  }
+
   const subcommandArgs = args.slice(1);
 
   if (subcommand === 'run') {
     const { values } = parseArgs({
       args: subcommandArgs,
       options: {
-        file: { type: 'string', default: './TASKS.md' },
+        file: { type: 'string' },
         execute: { type: 'boolean', default: false },
       },
       strict: true,
     });
 
-    const filePath = values.file as string;
+    const cliOverrides = buildCliOverrides(values);
+    const config = resolveConfig(cliOverrides, fileConfig);
+    const filePath = config.tasksFile;
     const executeFlag = values.execute as boolean;
 
     let content: string;
@@ -66,12 +86,15 @@ async function main(): Promise<void> {
     const { values } = parseArgs({
       args: subcommandArgs,
       options: {
-        file: { type: 'string', default: './TASKS.md' },
+        file: { type: 'string' },
       },
       strict: true,
     });
 
-    const filePath = values.file as string;
+    const cliOverrides = buildCliOverrides(values);
+    const config = resolveConfig(cliOverrides, fileConfig);
+    const filePath = config.tasksFile;
+
     let content: string;
     try {
       content = await readFile(filePath, 'utf-8');
@@ -87,7 +110,7 @@ async function main(): Promise<void> {
       args: subcommandArgs,
       options: {
         input: { type: 'string' },
-        format: { type: 'string', default: 'markdown' },
+        format: { type: 'string' },
       },
       strict: true,
     });
@@ -96,6 +119,9 @@ async function main(): Promise<void> {
       console.error('Error: --input <path> is required for the report command');
       process.exit(1);
     }
+
+    const cliOverrides = buildCliOverrides(values);
+    const config = resolveConfig(cliOverrides, fileConfig);
 
     let content: string;
     try {
@@ -106,7 +132,7 @@ async function main(): Promise<void> {
     }
 
     try {
-      const output = reportHandler(content, values.format as 'markdown' | 'json');
+      const output = reportHandler(content, config.outputFormat);
       console.log(output);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -117,12 +143,14 @@ async function main(): Promise<void> {
     const { values } = parseArgs({
       args: subcommandArgs,
       options: {
-        'log-dir': { type: 'string', default: DEFAULT_CONFIG.logDir },
+        'log-dir': { type: 'string' },
       },
       strict: true,
     });
 
-    const logDir = values['log-dir'] as string;
+    const cliOverrides = buildCliOverrides(values);
+    const config = resolveConfig(cliOverrides, fileConfig);
+    const logDir = config.logDir;
 
     try {
       const logPaths = await listSessionLogs(logDir);

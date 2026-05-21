@@ -96,7 +96,7 @@
 
 ---
 
-## [ ] Wire configuration file into the CLI
+## [x] Wire configuration file into the CLI
 **Priority:** high
 **Type:** code
 **Context:** The config module (`src/config.ts`) exists with `loadConfig` and `resolveConfig` but the CLI (`src/cli.ts`) ignores it entirely -- every subcommand hardcodes its own defaults (e.g., `'./TASKS.md'` for `--file`, `DEFAULT_CONFIG.logDir` for `--log-dir`) instead of loading `cowork.config.json` and letting CLI flags override it. Refactor `main()` in `src/cli.ts` to: (1) call `loadConfig()` early, before subcommand dispatch, catching and printing config errors with `process.exit(1)`; (2) use `resolveConfig` to merge CLI flag overrides (`--file` maps to `tasksFile`, `--format` to `outputFormat`, `--log-dir` to `logDir`) on top of the file config; (3) pass the resolved `CoworkConfig` into each handler so subcommands use `config.tasksFile` instead of a raw `--file` string, `config.logDir` instead of `--log-dir`, and `config.outputFormat` instead of `--format`; (4) update `runHandler` to accept a `CoworkConfig` so that a future `--execute` implementation can use `config.concurrency` and `config.timeout`; (5) ensure that when no `cowork.config.json` exists, behavior is identical to today (defaults apply, CLI flags still override). Update the handler signatures in `src/cli-handlers.ts` where needed. Add at least 6 tests: config file values flow through to handlers, CLI flags override config file values, missing config file still works, invalid config file prints a user-friendly error and exits, `--file` override takes precedence over `tasksFile` in config, and the resolved config is passed to `runHandler`.

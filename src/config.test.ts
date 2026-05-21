@@ -144,3 +144,67 @@ describe('resolveConfig', () => {
     ).toThrow(/Invalid concurrency/);
   });
 });
+
+describe('resolveConfig CLI integration patterns', () => {
+  it('--file flag maps to tasksFile and overrides config', () => {
+    const fileConfig: Partial<CoworkConfig> = { tasksFile: './config-tasks.md' };
+    const cliOverrides: Partial<CoworkConfig> = { tasksFile: './cli-tasks.md' };
+    const config = resolveConfig(cliOverrides, fileConfig);
+    expect(config.tasksFile).toBe('./cli-tasks.md');
+  });
+
+  it('--format flag maps to outputFormat and overrides config', () => {
+    const fileConfig: Partial<CoworkConfig> = { outputFormat: 'markdown' };
+    const cliOverrides: Partial<CoworkConfig> = { outputFormat: 'json' };
+    const config = resolveConfig(cliOverrides, fileConfig);
+    expect(config.outputFormat).toBe('json');
+  });
+
+  it('--log-dir flag maps to logDir and overrides config', () => {
+    const fileConfig: Partial<CoworkConfig> = { logDir: './config-logs' };
+    const cliOverrides: Partial<CoworkConfig> = { logDir: './cli-logs' };
+    const config = resolveConfig(cliOverrides, fileConfig);
+    expect(config.logDir).toBe('./cli-logs');
+  });
+
+  it('missing config file yields defaults so CLI works without config', () => {
+    const config = resolveConfig({}, {});
+    expect(config.tasksFile).toBe('./TASKS.md');
+    expect(config.outputFormat).toBe('markdown');
+    expect(config.logDir).toBe('./.cowork/logs');
+    expect(config.concurrency).toBe(4);
+    expect(config.timeout).toBe(300000);
+  });
+
+  it('config file values flow through when no CLI flags override them', () => {
+    const fileConfig: Partial<CoworkConfig> = {
+      tasksFile: './custom/TASKS.md',
+      outputFormat: 'json',
+      logDir: './custom-logs',
+      concurrency: 8,
+      timeout: 60000,
+    };
+    const config = resolveConfig({}, fileConfig);
+    expect(config.tasksFile).toBe('./custom/TASKS.md');
+    expect(config.outputFormat).toBe('json');
+    expect(config.logDir).toBe('./custom-logs');
+    expect(config.concurrency).toBe(8);
+    expect(config.timeout).toBe(60000);
+  });
+
+  it('partial CLI overrides merge correctly with partial file config', () => {
+    const fileConfig: Partial<CoworkConfig> = {
+      tasksFile: './file-tasks.md',
+      concurrency: 16,
+    };
+    const cliOverrides: Partial<CoworkConfig> = {
+      tasksFile: './override-tasks.md',
+    };
+    const config = resolveConfig(cliOverrides, fileConfig);
+    expect(config.tasksFile).toBe('./override-tasks.md');
+    expect(config.concurrency).toBe(16);
+    expect(config.outputFormat).toBe(DEFAULT_CONFIG.outputFormat);
+    expect(config.logDir).toBe(DEFAULT_CONFIG.logDir);
+    expect(config.timeout).toBe(DEFAULT_CONFIG.timeout);
+  });
+});
