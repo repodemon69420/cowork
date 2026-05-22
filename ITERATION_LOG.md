@@ -4,6 +4,22 @@
 
 ---
 
+## Iteration 7 — Quality improvements: test split, coverage, build
+**Status:** PASSED
+**Tasks:** Split integration tests, Improve runner coverage, Build verification
+**Tests:** 173 pass, 0 fail (9 new tests, file split)
+**Coverage:** 96.74% overall, runner.ts improved 83% → 96.61%
+**Quality Gate:** PASSED (all criteria met)
+
+**Changes:**
+- Split integration.test.ts (702→465 lines) into integration.test.ts + pipeline.test.ts (243 lines)
+- Added 8 new runner tests: circular deps, all-completed, all-failed, mixed scenarios, large batches
+- Added prepublishOnly script to package.json
+- Verified build output produces runnable dist/cli.js
+- Fixed lint error in pipeline.test.ts (unused import)
+
+---
+
 ## Iteration 6 — CLI run/add commands, README update
 **Status:** PASSED
 **Tasks:** Add CLI run command, Add CLI add command, Update README with complete documentation

@@ -107,6 +107,27 @@
 
 ---
 
+## [x] Split oversized integration test file
+**Priority:** high
+**Type:** refactor
+**Context:** src/integration.test.ts is 702 lines, violating the 400-line file limit. Split it into two files: src/integration.test.ts (keep the original pipeline and round-trip tests, ~15 tests) and src/pipeline.test.ts (move the new full pipeline integration tests, ~8 tests). All existing tests must continue to pass unchanged.
+
+---
+
+## [x] Improve runner module test coverage
+**Priority:** medium
+**Type:** test
+**Context:** src/runner.ts has only 83% coverage (lines 38-48 uncovered). Add tests to src/runner.test.ts that exercise the uncovered branches — likely the code path where tasks with unresolvable dependencies get routed to the skipped array. Also test edge cases: tasks with only failed status, very large task arrays, session with mixed completed/failed/pending/skipped tasks.
+
+---
+
+## [x] Add build verification and npm bin setup
+**Priority:** medium
+**Type:** code
+**Context:** Add a "prepublish" script to package.json that runs build + typecheck. Verify the build output exists at dist/cli.js after running npm run build. Add a test that verifies the package.json bin field points to a valid path. Also ensure tsconfig.json has outDir set to "dist" and the build produces runnable output.
+
+---
+
 <!-- INSTRUCTIONS:
   Copy the template below for each new task.
   Delete or comment out completed tasks.
