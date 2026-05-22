@@ -14,3 +14,13 @@
 6. **Real file system tests**: Reading actual project files (TASKS.md) in integration tests catches format drift between parser assumptions and actual file format.
 
 ---
+
+## Session 2026-05-22
+
+1. **Testable CLI pattern**: Separate `run(args, content?)` from `main()` so the CLI logic is fully testable without file system or process mocking. The optional `content` parameter lets tests inject data directly.
+2. **Parallel developer agents work well**: Spawning independent module agents (validator + writer) in parallel with no conflicts when they create separate files. Both edited index.ts but their changes were additive and non-conflicting.
+3. **Fix pre-existing issues opportunistically**: The `@types/node` typecheck fix was pre-existing but blocked the quality gate. Installing it as part of the iteration kept the pipeline clean.
+4. **DFS for cycle detection**: For circular dependency validation, DFS with an "in-stack" set is clean and handles arbitrary cycle lengths. Track `visited` globally and `inStack` per traversal path.
+5. **Regex escaping for user-supplied patterns**: When matching task titles in markdown content, always escape special regex characters (`escapeRegExp`) to prevent injection of regex metacharacters from task titles.
+
+---

@@ -1,27 +1,39 @@
-# Morning Report — 2026-05-16
+# Morning Report — 2026-05-22
 
 ## Summary
-- **Tasks completed:** 2 / 2
+- **Tasks completed:** 5 / 5 (2 prior + 3 this session)
 - **Tasks failed:** 0
-- **Iterations:** 2
-- **Tests:** 62 passing, 100% coverage on logic modules
-- **Commits:** 3 (including this report)
+- **Iterations:** 3 (1-2 prior, 3 this session)
+- **Tests:** 109 passing, 97% coverage overall
+- **New tests this session:** 47
 
-## Completed Tasks
+## This Session: Iteration 3
 
-### Scaffold the project structure
+### Add task validator module
 **Status:** Completed
-**Files changed:** package.json, tsconfig.json, eslint.config.js, vitest.config.ts, .gitignore, src/types.ts, src/parser.ts, src/scheduler.ts, src/reporter.ts, src/index.ts
-- Set up TypeScript Node.js project (ES2022, NodeNext, strict mode)
-- Created core modules: task parser (TASKS.md → Task[]), execution scheduler (dependency-aware parallel batching), and report generator (session results → markdown)
-- Configured Vitest with v8 coverage (80% threshold), ESLint with @typescript-eslint
+**Files changed:** src/validator.ts, src/validator.test.ts, src/index.ts
+- Created validator with 6 checks: empty titles, duplicate titles, self-dependencies, missing dependencies, circular dependencies (DFS), completed-with-pending-deps (warning)
+- Returns structured ValidationResult with typed errors and warnings
+- 14 tests covering all validation rules including multi-node cycles
 
-### Write unit tests for core utilities
+### Add task writer module
 **Status:** Completed
-**Files changed:** src/parser.test.ts, src/scheduler.test.ts, src/reporter.test.ts, src/integration.test.ts
-- 47 unit tests covering parser, scheduler, and reporter individually
-- 15 integration tests covering the full pipeline end-to-end
-- Edge cases: unicode, long strings, all-failed/all-completed scenarios, missing dependencies, real TASKS.md parsing
+**Files changed:** src/writer.ts, src/writer.test.ts, src/index.ts
+- Created `serializeTask()`, `serializeTasks()`, and `updateTaskStatus()` functions
+- Proper regex escaping for safe title matching in status updates
+- Round-trip test confirms serialize → parse produces equivalent tasks
+- 22 tests covering all serialization and status update scenarios
+
+### Add CLI entry point
+**Status:** Completed
+**Files changed:** src/cli.ts, src/cli.test.ts, package.json
+- CLI with `status`, `plan`, and `validate` commands using Node.js `parseArgs`
+- Testable `run(args, content?)` function separated from `main()` IO wrapper
+- Added `bin.cowork` field to package.json pointing to `dist/cli.js`
+- 11 tests covering all commands and usage display
+
+### Infrastructure fix
+- Installed `@types/node` to resolve pre-existing typecheck failures on `node:fs`, `node:path`, `node:url` imports
 
 ## Failed Tasks
 None.
@@ -29,37 +41,39 @@ None.
 ## Skipped Tasks
 None.
 
-## Commits
-- `b176b58` feat: [sdlc] scaffold project structure with TypeScript, tests, and tooling
-- `43be820` feat: [sdlc] add integration tests — 100% coverage on all logic modules
-
 ## Quality Metrics
 | Metric | Target | Actual |
 |--------|--------|--------|
-| Tests passing | 100% | 62/62 (100%) |
-| Coverage (statements) | ≥80% | 100% |
-| Coverage (branches) | ≥80% | 100% |
-| Max file length | <800 lines | 299 lines |
-| Max function length | <50 lines | 42 lines |
+| Tests passing | 100% | 109/109 (100%) |
+| Coverage (statements) | >=80% | 97% |
+| Coverage (branches) | >=80% | 97.5% |
+| Max file length | <400 lines | 340 lines |
+| Max function length | <50 lines | <50 lines |
 | CRITICAL issues | 0 | 0 |
 
 ## Architecture
 ```
 src/
-├── types.ts          (27 lines)  — Type definitions
-├── parser.ts         (71 lines)  — TASKS.md → Task[]
-├── scheduler.ts      (53 lines)  — Task[] → ExecutionBatch[]
-├── reporter.ts       (72 lines)  — SessionResult → markdown report
-├── index.ts          (4 lines)   — Barrel re-exports
-├── parser.test.ts    (299 lines) — 20 unit tests
-├── scheduler.test.ts (162 lines) — 13 unit tests
-├── reporter.test.ts  (162 lines) — 14 unit tests
-└── integration.test.ts           — 15 integration tests
+├── types.ts           (27 lines)  — Type definitions
+├── parser.ts          (71 lines)  — TASKS.md → Task[]
+├── scheduler.ts       (53 lines)  — Task[] → ExecutionBatch[]
+├── reporter.ts        (72 lines)  — SessionResult → markdown report
+├── validator.ts      (152 lines)  — Task[] → ValidationResult (errors + warnings)
+├── writer.ts          (69 lines)  — Task[] → TASKS.md string, status updates
+├── cli.ts            (137 lines)  — CLI entry point (status, plan, validate)
+├── index.ts            (6 lines)  — Barrel re-exports
+├── parser.test.ts    (299 lines)  — 20 unit tests
+├── scheduler.test.ts (162 lines)  — 13 unit tests
+├── reporter.test.ts  (162 lines)  — 14 unit tests
+├── integration.test.ts            — 15 integration tests
+├── validator.test.ts (173 lines)  — 14 unit tests
+├── writer.test.ts    (340 lines)  — 22 unit tests
+└── cli.test.ts       (174 lines)  — 11 unit tests
 ```
 
 ## Recommendations
-1. **Next tasks to queue:** Add a CLI entry point (`src/cli.ts`) that wires the modules together — reads TASKS.md, runs the scheduler, and writes the report
-2. **Consider adding:** A file-system adapter module for reading/writing TASKS.md and MORNING_REPORT.md (keeps core modules pure)
-3. **Linting:** Run `npx eslint src/` to verify lint compliance (not yet run in CI)
-4. **CI/CD:** Add a GitHub Actions workflow for test + typecheck on push
-5. **The parser** now handles both `**Field:** value` and `- **Field:** value` formats — keep this flexible pattern for future field additions
+1. **Build step:** Run `npm run build` and test the CLI binary end-to-end with `node dist/cli.js status`
+2. **CI/CD:** Add a GitHub Actions workflow for test + typecheck + lint on push
+3. **File watcher:** Consider a `cowork watch` command that re-runs validation on TASKS.md changes
+4. **Config file:** Add a `.coworkrc` or `cowork.config.ts` for customizing task file paths and output formats
+5. **Error context:** Add error codes to ValidationIssue types for programmatic handling

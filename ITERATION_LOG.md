@@ -4,6 +4,26 @@
 
 ---
 
+## Iteration 3 — Add validator, writer, and CLI modules
+**Status:** PASSED
+**Tasks:** Add task validator module, Add task writer module, Add CLI entry point
+**Tests:** 109 pass, 0 fail (47 new tests added)
+**Coverage:** 97% overall, 87%+ on all changed files, 100% on validator/writer
+**Quality Gate:** PASSED (all criteria met)
+
+**Changes:**
+- Created src/validator.ts — validates tasks for circular deps, duplicates, missing deps, empty titles, self-deps
+- Created src/validator.test.ts — 14 tests covering all validation rules
+- Created src/writer.ts — serializes Task objects to TASKS.md format, updates task status markers
+- Created src/writer.test.ts — 22 tests including round-trip serialization
+- Created src/cli.ts — CLI entry point with status, plan, validate commands using Node.js parseArgs
+- Created src/cli.test.ts — 11 tests covering all commands and edge cases
+- Updated src/index.ts — added validator and writer barrel exports
+- Added @types/node to fix pre-existing typecheck failures
+- Added bin field to package.json
+
+---
+
 ## Iteration 2 — Write unit tests for core utilities
 **Status:** PASSED
 **Task:** Write unit tests for core utilities
