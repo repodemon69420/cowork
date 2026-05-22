@@ -99,3 +99,45 @@
 **Context:** Updated README with all CLI commands and architecture.
 
 ---
+
+## [x] Split oversized integration test file
+**Priority:** high
+**Type:** refactor
+**Context:** Split integration.test.ts (702 lines) into two files under 400 lines each.
+
+---
+
+## [x] Improve runner module test coverage
+**Priority:** medium
+**Type:** test
+**Context:** Boost runner.ts coverage from 83% to 96.61%.
+
+---
+
+## [x] Add build verification and npm bin setup
+**Priority:** medium
+**Type:** code
+**Context:** Added prepublishOnly script, verified dist/cli.js build output.
+
+---
+
+## [x] Add CLI run command
+**Priority:** high
+**Type:** code
+**Context:** Full pipeline execution via CLI.
+
+---
+
+## [x] Add CLI add command
+**Priority:** medium
+**Type:** code
+**Context:** Generate new task blocks from command line.
+
+---
+
+## [x] Restore lost pipeline tests
+**Priority:** high
+**Type:** test
+**Context:** Fixed 8 cross-module integration tests lost during file split.
+
+---

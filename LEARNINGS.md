@@ -27,5 +27,8 @@
 8. **Config file with known-key filtering**: When loading user config from JSON, filter to only known keys before merging. This prevents typos from silently becoming config values and keeps the Config type honest.
 9. **Kill switch as pure function**: Making `checkKillSwitch(content)` take a string rather than reading from disk keeps it testable and composable. The caller decides where the content comes from.
 10. **Session runner simulation**: When actual execution is out of scope, marking pending tasks as completed provides a testable orchestration layer. Real execution can be plugged in later via a strategy function.
+11. **Background agent race conditions**: Spawning agents in the background can cause file conflicts when they complete after other agents have already modified the same files. Prefer foreground for agents that touch shared files.
+12. **Test file splits need careful verification**: When splitting test files, verify test counts before and after. Lost tests are silent failures — the suite still passes, just with fewer assertions.
+13. **Mid-session pushes**: Pushing progress mid-session protects against container reclamation and lets users check work from their phone.
 
 ---
