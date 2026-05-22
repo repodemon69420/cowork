@@ -36,3 +36,24 @@
 **Depends on:** Add task validator module, Add task writer module
 
 ---
+
+## [x] Add GitHub Actions CI workflow
+**Priority:** high
+**Type:** code
+**Context:** Create .github/workflows/ci.yml for automated testing on push/PR.
+
+---
+
+## [x] Add configuration module
+**Priority:** medium
+**Type:** code
+**Context:** Create src/config.ts with Config interface and loadConfig() function that reads .coworkrc.json.
+
+---
+
+## [x] Add error handling and exit codes to CLI
+**Priority:** medium
+**Type:** code
+**Context:** Enhance CLI with proper exit codes and --json flag for scriptable output.
+
+---

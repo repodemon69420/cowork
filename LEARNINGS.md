@@ -22,5 +22,8 @@
 3. **Fix pre-existing issues opportunistically**: The `@types/node` typecheck fix was pre-existing but blocked the quality gate. Installing it as part of the iteration kept the pipeline clean.
 4. **DFS for cycle detection**: For circular dependency validation, DFS with an "in-stack" set is clean and handles arbitrary cycle lengths. Track `visited` globally and `inStack` per traversal path.
 5. **Regex escaping for user-supplied patterns**: When matching task titles in markdown content, always escape special regex characters (`escapeRegExp`) to prevent injection of regex metacharacters from task titles.
+6. **Three parallel agents with shared index.ts**: When multiple agents edit the barrel file (index.ts) concurrently, additive line appends rarely conflict. Both validator and writer agents added exports without issues.
+7. **RunResult pattern for CLIs**: Returning `{ output, exitCode }` instead of just a string makes the CLI fully testable for both output content and exit behavior, without needing to mock `process.exit`.
+8. **Config file with known-key filtering**: When loading user config from JSON, filter to only known keys before merging. This prevents typos from silently becoming config values and keeps the Config type honest.
 
 ---

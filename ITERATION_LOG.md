@@ -4,6 +4,24 @@
 
 ---
 
+## Iteration 4 — CI, config, and CLI enhancements
+**Status:** PASSED
+**Tasks:** Add GitHub Actions CI workflow, Add configuration module, Add error handling and exit codes to CLI
+**Tests:** 127 pass, 0 fail (18 new tests added)
+**Coverage:** 96.4% overall, 87%+ on all changed files
+**Quality Gate:** PASSED (all criteria met)
+
+**Changes:**
+- Created .github/workflows/ci.yml — CI workflow for test, typecheck, lint on push/PR
+- Created src/config.ts — Config interface, DEFAULT_CONFIG, mergeConfig(), loadConfig()
+- Created src/config.test.ts — 10 tests covering config merging and file loading
+- Enhanced src/cli.ts — RunResult type with exitCode, --json flag for all commands
+- Updated src/cli.test.ts — 19 tests (8 new for exit codes and JSON output)
+- Fixed lint errors in integration.test.ts and validator.test.ts (unused imports)
+- Updated src/index.ts with config exports
+
+---
+
 ## Iteration 3 — Add validator, writer, and CLI modules
 **Status:** PASSED
 **Tasks:** Add task validator module, Add task writer module, Add CLI entry point

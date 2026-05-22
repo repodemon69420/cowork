@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateTasks, ValidationResult } from './validator.js';
+import { validateTasks } from './validator.js';
 import { Task } from './types.js';
 
 function makeTask(overrides: Partial<Task> & { title: string }): Task {

@@ -7,6 +7,11 @@ import { buildExecutionPlan } from './scheduler.js';
 import { validateTasks } from './validator.js';
 import { TaskStatus } from './types.js';
 
+export interface RunResult {
+  output: string;
+  exitCode: number;
+}
+
 const USAGE = `Usage: cowork <command>
 
 Commands:
@@ -24,7 +29,7 @@ function padLabel(label: string, width: number): string {
   return label + ':' + ' '.repeat(Math.max(0, width - label.length));
 }
 
-function formatStatus(tasksContent: string): string {
+function formatStatus(tasksContent: string, json: boolean): RunResult {
   const tasks = parseTasksFile(tasksContent);
 
   const counts: Record<string, number> = {};
@@ -35,21 +40,38 @@ function formatStatus(tasksContent: string): string {
     counts[task.status] = (counts[task.status] ?? 0) + 1;
   }
 
+  if (json) {
+    const data = { ...counts, total: tasks.length };
+    return { output: JSON.stringify(data, null, 2), exitCode: 0 };
+  }
+
   const maxLabelLen = Math.max(...STATUS_LABELS.map(s => capitalize(s).length));
   const lines = STATUS_LABELS.map(
     status => `  ${padLabel(capitalize(status), maxLabelLen)} ${counts[status]}`
   );
   lines.push(`  ${'Total:'.padEnd(maxLabelLen + 1)} ${tasks.length}`);
 
-  return `Task Status:\n${lines.join('\n')}`;
+  return { output: `Task Status:\n${lines.join('\n')}`, exitCode: 0 };
 }
 
-function formatPlan(tasksContent: string): string {
+function formatPlan(tasksContent: string, json: boolean): RunResult {
   const tasks = parseTasksFile(tasksContent);
   const batches = buildExecutionPlan(tasks);
 
+  if (json) {
+    const data = batches.map((batch, i) => ({
+      batch: i + 1,
+      parallel: batch.parallel,
+      tasks: batch.tasks.map(task => ({
+        title: task.title,
+        priority: task.priority,
+      })),
+    }));
+    return { output: JSON.stringify(data, null, 2), exitCode: 0 };
+  }
+
   if (batches.length === 0) {
-    return 'No pending tasks to plan.';
+    return { output: 'No pending tasks to plan.', exitCode: 0 };
   }
 
   const batchLines = batches.map((batch, i) => {
@@ -64,15 +86,20 @@ function formatPlan(tasksContent: string): string {
     return [header, ...taskLines].join('\n');
   });
 
-  return `Execution Plan:\n${batchLines.join('\n')}`;
+  return { output: `Execution Plan:\n${batchLines.join('\n')}`, exitCode: 0 };
 }
 
-function formatValidation(tasksContent: string): string {
+function formatValidation(tasksContent: string, json: boolean): RunResult {
   const tasks = parseTasksFile(tasksContent);
   const result = validateTasks(tasks);
+  const exitCode = result.errors.length > 0 ? 1 : 0;
+
+  if (json) {
+    return { output: JSON.stringify(result, null, 2), exitCode };
+  }
 
   if (result.errors.length === 0 && result.warnings.length === 0) {
-    return 'Validation passed — no issues found.';
+    return { output: 'Validation passed — no issues found.', exitCode: 0 };
   }
 
   const sections: string[] = [];
@@ -93,28 +120,32 @@ function formatValidation(tasksContent: string): string {
     sections.push([header, ...items].join('\n'));
   }
 
-  return `Validation Results:\n${sections.join('\n')}`;
+  return { output: `Validation Results:\n${sections.join('\n')}`, exitCode };
 }
 
-export function run(args: string[], tasksContent?: string): string {
-  const { positionals } = parseArgs({
+export function run(args: string[], tasksContent?: string): RunResult {
+  const { positionals, values } = parseArgs({
     args,
     allowPositionals: true,
     strict: false,
+    options: {
+      json: { type: 'boolean', default: false },
+    },
   });
 
   const command = positionals[0];
   const content = tasksContent ?? '';
+  const json = values.json as boolean;
 
   switch (command) {
     case 'status':
-      return formatStatus(content);
+      return formatStatus(content, json);
     case 'plan':
-      return formatPlan(content);
+      return formatPlan(content, json);
     case 'validate':
-      return formatValidation(content);
+      return formatValidation(content, json);
     default:
-      return USAGE;
+      return { output: USAGE, exitCode: 0 };
   }
 }
 
@@ -122,8 +153,11 @@ export function main(): void {
   try {
     const args = process.argv.slice(2);
     const tasksContent = readFileSync('TASKS.md', 'utf-8');
-    const output = run(args, tasksContent);
-    process.stdout.write(output + '\n');
+    const result = run(args, tasksContent);
+    process.stdout.write(result.output + '\n');
+    if (result.exitCode !== 0) {
+      process.exit(result.exitCode);
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`Error: ${message}\n`);

@@ -44,6 +44,27 @@
 
 ---
 
+## [x] Add GitHub Actions CI workflow
+**Priority:** high
+**Type:** code
+**Context:** Create .github/workflows/ci.yml that runs on push and pull_request to main. Steps: checkout, setup Node 20, npm ci, npm run typecheck, npm run lint, npm run test:coverage. Use a simple single-job workflow. Fail the build if any step fails.
+
+---
+
+## [x] Add configuration module
+**Priority:** medium
+**Type:** code
+**Context:** Create src/config.ts that defines a Config interface with tasksFile (default TASKS.md), reportFile (default MORNING_REPORT.md), and statusLine (default "# Status: ON"). Add a loadConfig() function that reads from a .coworkrc.json file in CWD if it exists, otherwise returns defaults. Merge file config with defaults (file values override). Write tests in src/config.test.ts. Export from index.ts.
+
+---
+
+## [x] Add error handling and exit codes to CLI
+**Priority:** medium
+**Type:** code
+**Context:** Enhance src/cli.ts so the validate command exits with code 1 if there are validation errors (currently it just prints them). Add a --json flag to all commands that outputs JSON instead of formatted text. This enables scripting and piping. Update src/cli.test.ts with new test cases for --json output and exit code behavior. The run() function should return { output: string, exitCode: number } instead of just a string — update all callers.
+
+---
+
 <!-- INSTRUCTIONS:
   Copy the template below for each new task.
   Delete or comment out completed tasks.
