@@ -201,6 +201,122 @@ describe('CLI run()', () => {
     });
   });
 
+  describe('run command', () => {
+    it('with active kill switch and valid tasks returns report with exitCode 0', () => {
+      const content = '# Status: ON\n\n' + makeTasks(
+        { title: 'Task A', status: 'pending', priority: 'high' },
+        { title: 'Task B', status: 'pending', priority: 'medium' },
+      );
+
+      const result = run(['run'], content);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.output).toContain('Overnight Session Report');
+      expect(result.output).toContain('Task A');
+      expect(result.output).toContain('Task B');
+    });
+
+    it('with OFF kill switch returns abort message with exitCode 0', () => {
+      const content = '# Status: OFF\n\n' + makeTasks(
+        { title: 'Task A', status: 'pending' },
+      );
+
+      const result = run(['run'], content);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.output).toContain('Kill switch is OFF');
+      expect(result.output).toContain('session aborted');
+    });
+
+    it('with validation errors returns errors with exitCode 1', () => {
+      const content = '# Status: ON\n\n' + makeTasks(
+        { title: 'Task A', status: 'pending' },
+        { title: 'Task A', status: 'pending' },
+      );
+
+      const result = run(['run'], content);
+
+      expect(result.exitCode).toBe(1);
+      expect(result.output).toContain('Validation Results:');
+      expect(result.output).toContain('Errors');
+      expect(result.output).toContain('duplicate-title');
+    });
+
+    it('--json with valid tasks returns JSON', () => {
+      const content = '# Status: ON\n\n' + makeTasks(
+        { title: 'Task A', status: 'pending', priority: 'high' },
+      );
+
+      const result = run(['run', '--json'], content);
+
+      expect(result.exitCode).toBe(0);
+      const data = JSON.parse(result.output);
+      expect(data).toHaveProperty('completed');
+      expect(data).toHaveProperty('failed');
+      expect(data).toHaveProperty('skipped');
+    });
+
+    it('--json with OFF kill switch returns JSON with aborted flag', () => {
+      const content = '# Status: OFF\n\n' + makeTasks(
+        { title: 'Task A', status: 'pending' },
+      );
+
+      const result = run(['run', '--json'], content);
+
+      expect(result.exitCode).toBe(0);
+      const data = JSON.parse(result.output);
+      expect(data).toHaveProperty('aborted', true);
+      expect(data).toHaveProperty('reason');
+    });
+  });
+
+  describe('add command', () => {
+    it('with title generates task block with default priority/type', () => {
+      const result = run(['add', 'Fix login bug']);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.output).toContain('## [ ] Fix login bug');
+      expect(result.output).toContain('**Priority:** medium');
+      expect(result.output).toContain('**Type:** code');
+    });
+
+    it('with --priority and --type uses provided values', () => {
+      const result = run(['add', 'Write tests', '--priority', 'high', '--type', 'test']);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.output).toContain('**Priority:** high');
+      expect(result.output).toContain('**Type:** test');
+    });
+
+    it('with --context includes context', () => {
+      const result = run(['add', 'Refactor auth', '--context', 'Needs cleanup']);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.output).toContain('**Context:** Needs cleanup');
+    });
+
+    it('without title returns usage with exitCode 1', () => {
+      const result = run(['add']);
+
+      expect(result.exitCode).toBe(1);
+      expect(result.output).toContain('Usage: cowork add');
+    });
+
+    it('--json returns valid JSON task object', () => {
+      const result = run(['add', 'New feature', '--json', '--priority', 'low', '--type', 'research']);
+
+      expect(result.exitCode).toBe(0);
+      const data = JSON.parse(result.output);
+      expect(data).toEqual({
+        title: 'New feature',
+        priority: 'low',
+        type: 'research',
+        context: '',
+        status: 'pending',
+      });
+    });
+  });
+
   describe('usage', () => {
     it('shows usage when no command given', () => {
       const result = run([], '');
@@ -209,6 +325,8 @@ describe('CLI run()', () => {
       expect(result.output).toContain('status');
       expect(result.output).toContain('plan');
       expect(result.output).toContain('validate');
+      expect(result.output).toContain('run');
+      expect(result.output).toContain('add');
     });
 
     it('shows usage for unknown command', () => {

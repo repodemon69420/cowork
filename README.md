@@ -1,67 +1,99 @@
-# Cowork — Claude Overnight Agent Workflow
+# Cowork
 
-While you sleep, a fleet of Claude Code agents works through your task queue, commits results, and leaves a morning report.
+An overnight Claude Code agent workflow framework -- queue tasks before bed, wake up to commits and a morning report.
 
 ## How It Works
 
 ```
-Before bed:  Add tasks to TASKS.md
-             Run: claude -p ".claude/agents/orchestrator.md"
-
-Overnight:   Orchestrator reads tasks
-             Spawns parallel worker agents (one per independent task)
-             Each worker: plans → implements → tests → commits
-
-Morning:     Read MORNING_REPORT.md
-             Review commits in git log
+1. Define tasks     Add task blocks to TASKS.md with priority and type
+2. Run session      cowork run -- validates, plans batches, executes, reports
+3. Read results     Check MORNING_REPORT.md and git log
 ```
 
 ## Quick Start
 
 ```bash
-# 1. Queue your tasks
-nano TASKS.md
+npm install
+npm run build
 
-# 2. Launch the overnight run (detached)
-nohup claude -p ".claude/agents/orchestrator.md" > logs/cowork.log 2>&1 &
+# Add a task
+cowork add "Refactor auth module" --priority high --type refactor --context "Split into smaller functions"
 
-# 3. Go to sleep. Check results in the morning.
-cat MORNING_REPORT.md
-git log --oneline
+# Validate your task file
+cowork validate
+
+# Preview execution order
+cowork plan
+
+# Run the full session
+cowork run
 ```
 
-## Task Format (TASKS.md)
+## CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `cowork status` | Show task counts by status (pending, completed, failed, skipped) |
+| `cowork plan` | Show execution plan with parallel/sequential batches |
+| `cowork validate` | Check tasks for issues (circular deps, duplicates, missing fields) |
+| `cowork run` | Full pipeline: validate, plan, execute, generate report |
+| `cowork add "title"` | Generate a task block (`--priority`, `--type`, `--context`) |
+
+All commands support `--json` for machine-readable output.
+
+## Task Format
+
+Tasks live in `TASKS.md`. Each task is an H2 block with a checkbox marker:
 
 ```markdown
 ## [ ] Task title
 **Priority:** high | medium | low
-**Type:** code | research | docs | refactor | test
-**Context:** brief description of what needs doing and why
----
+**Type:** code | research | docs | refactor | test | design
+**Context:** What needs to be done and why.
+**Depends on:** Other task title
 ```
+
+Status markers: `[ ]` pending, `[x]` completed, `[!]` failed, `[-]` skipped.
+
+The file starts with a kill switch line -- set `# Status: OFF` to abort runs.
+
+## Configuration
+
+Optional `.coworkrc.json` in the project root:
+
+```json
+{
+  "tasksFile": "TASKS.md",
+  "reportFile": "MORNING_REPORT.md",
+  "statusLine": "# Status: ON"
+}
+```
+
+All fields are optional and fall back to the defaults shown above.
 
 ## System Files
 
 | File | Purpose |
 |------|---------|
-| `TASKS.md` | Your nightly task queue |
-| `MORNING_REPORT.md` | Auto-generated results summary |
-| `logs/cowork.log` | Runtime logs |
-| `.claude/agents/orchestrator.md` | Orchestrator agent prompt |
-| `.claude/agents/worker.md` | Worker agent template |
-| `.claude/agents/reporter.md` | Morning report generator |
-| `scripts/cowork.sh` | One-command launcher |
+| `TASKS.md` | Task queue with status markers |
+| `MORNING_REPORT.md` | Auto-generated session report |
+| `.coworkrc.json` | Optional configuration overrides |
+| `dist/cli.js` | Compiled CLI entry point |
 
-## Maximizing Max Plan Usage
+## Architecture
 
-- Tasks run in **parallel** via sub-agents (independent tasks run simultaneously)
-- Each agent uses the full context window for its task
-- The orchestrator uses extended thinking to plan optimal execution order
-- Continuous learning extracts patterns for future sessions
+Source modules in `src/`:
 
-## Tips
-
-- Queue 5-15 tasks for a full overnight run
-- Mark dependencies clearly: `**Depends on:** Task X`
-- High-priority tasks run first, then parallel batches fill remaining capacity
-- Check `logs/cowork.log` if something looks incomplete
+| Module | Purpose |
+|--------|---------|
+| `types.ts` | Core type definitions (Task, ExecutionBatch, SessionResult) |
+| `parser.ts` | Parses TASKS.md into Task objects |
+| `scheduler.ts` | Builds execution batches from tasks, respecting dependencies |
+| `validator.ts` | Validates tasks (circular deps, duplicates, missing fields) |
+| `writer.ts` | Serializes tasks back to markdown, updates status markers |
+| `reporter.ts` | Generates markdown report from session results |
+| `runner.ts` | Session orchestration -- runs the execution plan |
+| `killswitch.ts` | Reads Status: ON/OFF line to gate execution |
+| `config.ts` | Loads and merges `.coworkrc.json` with defaults |
+| `cli.ts` | CLI entry point with all commands |
+| `index.ts` | Barrel re-exports |

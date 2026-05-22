@@ -4,6 +4,22 @@
 
 ---
 
+## Iteration 6 — CLI run/add commands, README update
+**Status:** PASSED
+**Tasks:** Add CLI run command, Add CLI add command, Update README with complete documentation
+**Tests:** 164 pass, 0 fail (10 new tests added)
+**Coverage:** 95.4% overall, 90%+ on CLI
+**Quality Gate:** PASSED (all criteria met)
+
+**Changes:**
+- Added `run` command to CLI — full pipeline: kill switch → validate → plan → execute → report
+- Added `add` command to CLI — generate task blocks with --priority, --type, --context flags
+- Both commands support --json output
+- Updated README.md with complete CLI documentation, config format, architecture
+- 29 CLI tests covering all 5 commands
+
+---
+
 ## Iteration 5 — Kill switch, session runner, pipeline integration
 **Status:** PASSED
 **Tasks:** Add kill switch module, Add session runner module, Add full pipeline integration tests

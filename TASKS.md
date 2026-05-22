@@ -86,6 +86,27 @@
 
 ---
 
+## [x] Add CLI run command
+**Priority:** high
+**Type:** code
+**Context:** Add a 'run' command to src/cli.ts that performs the full pipeline: check kill switch, validate tasks, build plan, run session, generate report, and return the report as output. If the kill switch is OFF, output "Kill switch is OFF — session aborted." with exitCode 0. If validation has errors, output them with exitCode 1. Otherwise run the session and output the report. Add --json support. Update src/cli.test.ts with tests. Also add 'run' to the USAGE string.
+
+---
+
+## [x] Add CLI add command
+**Priority:** medium
+**Type:** code
+**Context:** Add an 'add' command to src/cli.ts that outputs a new task markdown block to stdout. Usage: cowork add "Task title" --priority high --type code --context "Description". It should use serializeTask from writer.ts to generate the block. Default priority is medium, default type is code, default context is empty string. If --append flag is provided AND tasksContent is available, append the task to the existing content and output the full updated content. Add tests. Also add 'add' to the USAGE string.
+
+---
+
+## [x] Update README with complete documentation
+**Priority:** low
+**Type:** docs
+**Context:** Update README.md to document all CLI commands (status, plan, validate, run, add) with usage examples, the .coworkrc.json config file format, and the updated module architecture. Keep it concise — this is a developer tool README, not a novel. Replace the existing Architecture section content with the current file list.
+
+---
+
 <!-- INSTRUCTIONS:
   Copy the template below for each new task.
   Delete or comment out completed tasks.

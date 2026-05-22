@@ -78,3 +78,24 @@
 **Context:** End-to-end tests exercising all modules together.
 
 ---
+
+## [x] Add CLI run command
+**Priority:** high
+**Type:** code
+**Context:** Full pipeline execution via CLI.
+
+---
+
+## [x] Add CLI add command
+**Priority:** medium
+**Type:** code
+**Context:** Generate new task blocks from command line.
+
+---
+
+## [x] Update README with complete documentation
+**Priority:** low
+**Type:** docs
+**Context:** Updated README with all CLI commands and architecture.
+
+---

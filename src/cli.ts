@@ -5,7 +5,11 @@ import { parseArgs } from 'node:util';
 import { parseTasksFile } from './parser.js';
 import { buildExecutionPlan } from './scheduler.js';
 import { validateTasks } from './validator.js';
-import { TaskStatus } from './types.js';
+import { checkKillSwitch } from './killswitch.js';
+import { runSession } from './runner.js';
+import { generateReport } from './reporter.js';
+import { TaskStatus, TaskPriority, TaskType, Task } from './types.js';
+import { serializeTask } from './writer.js';
 
 export interface RunResult {
   output: string;
@@ -17,7 +21,9 @@ const USAGE = `Usage: cowork <command>
 Commands:
   status    Show task counts by status
   plan      Show the execution plan
-  validate  Validate tasks for issues`;
+  validate  Validate tasks for issues
+  run       Run a session (parse, validate, plan, execute, report)
+  add       Generate a new task block`;
 
 const STATUS_LABELS: readonly TaskStatus[] = ['pending', 'completed', 'failed', 'skipped'];
 
@@ -123,6 +129,55 @@ function formatValidation(tasksContent: string, json: boolean): RunResult {
   return { output: `Validation Results:\n${sections.join('\n')}`, exitCode };
 }
 
+function formatRun(tasksContent: string, json: boolean): RunResult {
+  const killSwitch = checkKillSwitch(tasksContent);
+
+  if (!killSwitch.active) {
+    const reason = killSwitch.reason ?? 'Kill switch is OFF';
+    if (json) {
+      return { output: JSON.stringify({ aborted: true, reason }, null, 2), exitCode: 0 };
+    }
+    return { output: 'Kill switch is OFF — session aborted.', exitCode: 0 };
+  }
+
+  const tasks = parseTasksFile(tasksContent);
+
+  const validation = validateTasks(tasks);
+  if (validation.errors.length > 0) {
+    return formatValidation(tasksContent, json);
+  }
+
+  const result = runSession(tasks);
+  const report = generateReport(result, []);
+
+  if (json) {
+    return { output: JSON.stringify(result, null, 2), exitCode: 0 };
+  }
+
+  return { output: report, exitCode: 0 };
+}
+
+function formatAdd(positionals: string[], values: Record<string, unknown>, json: boolean): RunResult {
+  const title = positionals[1];
+  if (!title) {
+    return { output: 'Usage: cowork add "Task title" [--priority high] [--type code] [--context "..."]', exitCode: 1 };
+  }
+
+  const task: Task = {
+    title,
+    priority: (values.priority as TaskPriority) || 'medium',
+    type: (values.type as TaskType) || 'code',
+    context: (values.context as string) || '',
+    status: 'pending',
+  };
+
+  if (json) {
+    return { output: JSON.stringify(task, null, 2), exitCode: 0 };
+  }
+
+  return { output: serializeTask(task), exitCode: 0 };
+}
+
 export function run(args: string[], tasksContent?: string): RunResult {
   const { positionals, values } = parseArgs({
     args,
@@ -130,6 +185,9 @@ export function run(args: string[], tasksContent?: string): RunResult {
     strict: false,
     options: {
       json: { type: 'boolean', default: false },
+      priority: { type: 'string', short: 'p' },
+      type: { type: 'string', short: 't' },
+      context: { type: 'string', short: 'c' },
     },
   });
 
@@ -144,6 +202,10 @@ export function run(args: string[], tasksContent?: string): RunResult {
       return formatPlan(content, json);
     case 'validate':
       return formatValidation(content, json);
+    case 'run':
+      return formatRun(content, json);
+    case 'add':
+      return formatAdd(positionals, values, json);
     default:
       return { output: USAGE, exitCode: 0 };
   }
