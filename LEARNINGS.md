@@ -25,5 +25,7 @@
 6. **Three parallel agents with shared index.ts**: When multiple agents edit the barrel file (index.ts) concurrently, additive line appends rarely conflict. Both validator and writer agents added exports without issues.
 7. **RunResult pattern for CLIs**: Returning `{ output, exitCode }` instead of just a string makes the CLI fully testable for both output content and exit behavior, without needing to mock `process.exit`.
 8. **Config file with known-key filtering**: When loading user config from JSON, filter to only known keys before merging. This prevents typos from silently becoming config values and keeps the Config type honest.
+9. **Kill switch as pure function**: Making `checkKillSwitch(content)` take a string rather than reading from disk keeps it testable and composable. The caller decides where the content comes from.
+10. **Session runner simulation**: When actual execution is out of scope, marking pending tasks as completed provides a testable orchestration layer. Real execution can be plugged in later via a strategy function.
 
 ---

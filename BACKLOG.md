@@ -57,3 +57,24 @@
 **Context:** Enhance CLI with proper exit codes and --json flag for scriptable output.
 
 ---
+
+## [x] Add kill switch module
+**Priority:** high
+**Type:** code
+**Context:** Parse TASKS.md header for Status: ON/OFF.
+
+---
+
+## [x] Add session runner module
+**Priority:** high
+**Type:** code
+**Context:** Create session orchestration logic: parse → plan → execute → result.
+
+---
+
+## [x] Add full pipeline integration tests
+**Priority:** medium
+**Type:** test
+**Context:** End-to-end tests exercising all modules together.
+
+---

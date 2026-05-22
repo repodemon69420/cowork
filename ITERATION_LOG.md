@@ -4,6 +4,23 @@
 
 ---
 
+## Iteration 5 — Kill switch, session runner, pipeline integration
+**Status:** PASSED
+**Tasks:** Add kill switch module, Add session runner module, Add full pipeline integration tests
+**Tests:** 154 pass, 0 fail (27 new tests added)
+**Coverage:** 95% overall, 83%+ on all changed files
+**Quality Gate:** PASSED (all criteria met)
+
+**Changes:**
+- Created src/killswitch.ts — checkKillSwitch() parses Status: ON/OFF from TASKS.md header
+- Created src/killswitch.test.ts — 8 tests covering all status variations
+- Created src/runner.ts — runSession() and summarizeSession() for session orchestration
+- Created src/runner.test.ts — 11 tests for session lifecycle
+- Added 8 full pipeline integration tests to src/integration.test.ts
+- Updated src/index.ts with killswitch and runner exports
+
+---
+
 ## Iteration 4 — CI, config, and CLI enhancements
 **Status:** PASSED
 **Tasks:** Add GitHub Actions CI workflow, Add configuration module, Add error handling and exit codes to CLI

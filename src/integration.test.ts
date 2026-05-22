@@ -4,8 +4,14 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { parseTasksFile } from './parser.js';
+import { validateTasks } from './validator.js';
 import { buildExecutionPlan } from './scheduler.js';
+import { runSession } from './runner.js';
 import { generateReport } from './reporter.js';
+import { serializeTasks, updateTaskStatus } from './writer.js';
+import { checkKillSwitch } from './killswitch.js';
+import { mergeConfig, DEFAULT_CONFIG } from './config.js';
+import { run } from './cli.js';
 import type { Task, SessionResult } from './types.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -461,5 +467,236 @@ describe('Re-export verification', () => {
     expect(output).toContain('- **type**: docs');
     expect(output).toContain('- **priority**: medium');
     expect(output).toContain('- **context**: Some context here.');
+  });
+});
+
+describe('full pipeline integration', () => {
+  it('parse → validate → plan → run → report pipeline', () => {
+    const content = `## [ ] Build authentication module
+**Priority:** high
+**Type:** code
+**Context:** Implement JWT-based auth with refresh tokens.
+
+---
+
+## [ ] Create landing page
+**Priority:** medium
+**Type:** design
+**Context:** Design and implement the marketing landing page.
+
+---
+
+## [ ] Write auth tests
+**Priority:** high
+**Type:** test
+**Context:** Unit and integration tests for the auth module.
+**Depends on:** Build authentication module
+`;
+
+    const tasks = parseTasksFile(content);
+    expect(tasks).toHaveLength(3);
+
+    const validation = validateTasks(tasks);
+    expect(validation.errors).toHaveLength(0);
+
+    const plan = buildExecutionPlan(tasks);
+    expect(plan.length).toBeGreaterThan(0);
+    expect(plan[0].tasks.some(t => t.title === 'Build authentication module')).toBe(true);
+    expect(plan[0].tasks.some(t => t.title === 'Create landing page')).toBe(true);
+
+    const sessionResult = runSession(tasks);
+    expect(sessionResult.completed.length).toBe(3);
+    expect(sessionResult.failed).toHaveLength(0);
+    expect(sessionResult.skipped).toHaveLength(0);
+
+    const report = generateReport(sessionResult, ['aaa111 Build authentication module', 'bbb222 Write auth tests']);
+    expect(report).toContain('## Completed');
+    expect(report).toContain('3/3 completed');
+    expect(report).toMatch(/\*\*Duration\*\*: \d+/);
+  });
+
+  it('parse → validate catches errors', () => {
+    const content = `## [ ] Setup database
+**Priority:** high
+**Type:** code
+**Context:** Create the schema.
+
+---
+
+## [ ] Setup database
+**Priority:** medium
+**Type:** code
+**Context:** Duplicate title.
+
+---
+
+## [ ] Task X
+**Priority:** low
+**Type:** code
+**Context:** Circular with Y.
+**Depends on:** Task Y
+
+---
+
+## [ ] Task Y
+**Priority:** low
+**Type:** code
+**Context:** Circular with X.
+**Depends on:** Task X
+`;
+
+    const tasks = parseTasksFile(content);
+    const validation = validateTasks(tasks);
+
+    expect(validation.errors.length).toBeGreaterThanOrEqual(2);
+    expect(validation.errors.some(e => e.type === 'duplicate-title')).toBe(true);
+    expect(validation.errors.some(e => e.type === 'circular-dependency')).toBe(true);
+  });
+
+  it('serialize → parse round-trip preserves data', () => {
+    const originalTasks: Task[] = [
+      { title: 'Implement caching', priority: 'high', type: 'code', context: 'Add Redis caching layer.', status: 'pending' },
+      { title: 'Update docs', priority: 'low', type: 'docs', context: 'Refresh the API docs.', status: 'completed', dependsOn: ['Implement caching'] },
+      { title: 'Refactor utils', priority: 'medium', type: 'refactor', context: 'Clean up utility functions.', status: 'failed' },
+    ];
+
+    const serialized = serializeTasks(originalTasks);
+    const parsed = parseTasksFile(serialized);
+
+    expect(parsed).toHaveLength(3);
+
+    for (let i = 0; i < originalTasks.length; i++) {
+      expect(parsed[i].title).toBe(originalTasks[i].title);
+      expect(parsed[i].priority).toBe(originalTasks[i].priority);
+      expect(parsed[i].type).toBe(originalTasks[i].type);
+      expect(parsed[i].status).toBe(originalTasks[i].status);
+    }
+
+    expect(parsed[1].dependsOn).toContain('Implement caching');
+  });
+
+  it('killswitch + parse integration', () => {
+    const content = `# Status: OFF
+
+## [ ] Run migrations
+**Priority:** high
+**Type:** code
+**Context:** Apply pending database migrations.
+
+---
+
+## [ ] Send notifications
+**Priority:** medium
+**Type:** code
+**Context:** Notify users of the new release.
+`;
+
+    const killResult = checkKillSwitch(content);
+    expect(killResult.active).toBe(false);
+    expect(killResult.reason).toBe('Status set to OFF');
+
+    const tasks = parseTasksFile(content);
+    expect(tasks).toHaveLength(2);
+    expect(tasks[0].title).toBe('Run migrations');
+    expect(tasks[1].title).toBe('Send notifications');
+  });
+
+  it('CLI validate with bad tasks', () => {
+    const content = `## [ ] Duplicate task
+**Priority:** high
+**Type:** code
+**Context:** First occurrence.
+
+---
+
+## [ ] Duplicate task
+**Priority:** medium
+**Type:** code
+**Context:** Second occurrence.
+
+---
+
+## [ ] Orphan task
+**Priority:** low
+**Type:** code
+**Context:** Depends on nonexistent.
+**Depends on:** Ghost task
+`;
+
+    const result = run(['validate'], content);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('duplicate-title');
+    expect(result.output).toContain('missing-dependency');
+  });
+
+  it('CLI status with mixed tasks', () => {
+    const content = `## [ ] Pending task one
+**Priority:** high
+**Type:** code
+**Context:** Waiting to start.
+
+---
+
+## [ ] Pending task two
+**Priority:** medium
+**Type:** code
+**Context:** Also waiting.
+
+---
+
+## [x] Completed task
+**Priority:** high
+**Type:** code
+**Context:** Already done.
+
+---
+
+## [!] Failed task
+**Priority:** low
+**Type:** test
+**Context:** Something went wrong.
+`;
+
+    const result = run(['status'], content);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toMatch(/Pending:\s+2/);
+    expect(result.output).toMatch(/Completed:\s+1/);
+    expect(result.output).toMatch(/Failed:\s+1/);
+    expect(result.output).toMatch(/Total:\s+4/);
+  });
+
+  it('writer updateTaskStatus → parse round-trip', () => {
+    const content = `## [ ] Deploy to staging
+**Priority:** high
+**Type:** code
+**Context:** Deploy the latest build.
+
+---
+
+## [ ] Run smoke tests
+**Priority:** medium
+**Type:** test
+**Context:** Verify deployment.
+**Depends on:** Deploy to staging
+`;
+
+    const updated = updateTaskStatus(content, 'Deploy to staging', 'completed');
+    const tasks = parseTasksFile(updated);
+
+    expect(tasks).toHaveLength(2);
+    const deployTask = tasks.find(t => t.title === 'Deploy to staging');
+    expect(deployTask).toBeDefined();
+    expect(deployTask!.status).toBe('completed');
+
+    const smokeTask = tasks.find(t => t.title === 'Run smoke tests');
+    expect(smokeTask).toBeDefined();
+    expect(smokeTask!.status).toBe('pending');
+  });
+
+  it('config mergeConfig + defaults', () => {
+    const result = mergeConfig({});
+    expect(result.tasksFile).toBe(DEFAULT_CONFIG.tasksFile);
+    expect(result.reportFile).toBe(DEFAULT_CONFIG.reportFile);
+    expect(result.statusLine).toBe(DEFAULT_CONFIG.statusLine);
   });
 });

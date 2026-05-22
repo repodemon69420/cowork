@@ -65,6 +65,27 @@
 
 ---
 
+## [x] Add kill switch module
+**Priority:** high
+**Type:** code
+**Context:** Create src/killswitch.ts that exports a checkKillSwitch(content: string): { active: boolean; reason?: string } function. It checks the TASKS.md content for the status line. If the first line matching /^# Status:/ says "OFF", return { active: false, reason: "Status set to OFF" }. If it says "ON" or is missing, return { active: true }. Write tests in src/killswitch.test.ts. Export from index.ts.
+
+---
+
+## [x] Add session runner module
+**Priority:** high
+**Type:** code
+**Context:** Create src/runner.ts that exports a runSession(tasks: Task[]): SessionResult function. It takes parsed tasks, builds the execution plan, simulates execution by marking all pending tasks as completed (actual subprocess execution is out of scope), and returns a SessionResult. Also export createSessionResult(completed: Task[], failed: Task[], skipped: Task[]): SessionResult that creates a SessionResult with startTime and endTime. Write tests in src/runner.test.ts. Export from index.ts.
+
+---
+
+## [x] Add full pipeline integration tests
+**Priority:** medium
+**Type:** test
+**Context:** Add tests to src/integration.test.ts that exercise the full pipeline: parse TASKS.md content → validate → build plan → run session → generate report. Test that the report contains expected sections. Also test the kill switch + config + CLI modules together. Target: verify all modules work together coherently.
+
+---
+
 <!-- INSTRUCTIONS:
   Copy the template below for each new task.
   Delete or comment out completed tasks.
