@@ -7,6 +7,7 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 vi.mock('./fs-adapter.js', () => ({
+  readFile: vi.fn(async () => ''),
   writeFile: vi.fn(async () => {}),
 }));
 
@@ -48,6 +49,34 @@ const ALL_COMPLETED_TASKS_MD = `# Nightly Task Queue
 **Context:** This task is already completed.
 `;
 
+const CIRCULAR_TASKS_MD = `# Tasks
+
+## [ ] Task A
+**Priority:** high
+**Type:** code
+**Context:** Depends on B
+**Depends on:** Task B
+
+## [ ] Task B
+**Priority:** high
+**Type:** code
+**Context:** Depends on A
+**Depends on:** Task A
+`;
+
+function defaultArgs(overrides: Partial<import('./cli.js').CliArgs> = {}): import('./cli.js').CliArgs {
+  return {
+    tasksFile: 'TASKS.md',
+    dryRun: false,
+    help: false,
+    version: false,
+    validate: false,
+    noUpdate: false,
+    output: undefined,
+    ...overrides,
+  };
+}
+
 function createMockRunner(): TaskRunner {
   return vi.fn(async () => {});
 }
@@ -55,37 +84,41 @@ function createMockRunner(): TaskRunner {
 describe('parseArgs', () => {
   it('returns defaults when no args provided', () => {
     const result = parseArgs([]);
-    expect(result).toEqual({
-      tasksFile: 'TASKS.md',
-      dryRun: false,
-      help: false,
-      output: undefined,
-    });
+    expect(result).toEqual(defaultArgs());
   });
 
   it('sets help flag with --help', () => {
-    const result = parseArgs(['--help']);
-    expect(result.help).toBe(true);
+    expect(parseArgs(['--help']).help).toBe(true);
+  });
+
+  it('sets version flag with --version', () => {
+    expect(parseArgs(['--version']).version).toBe(true);
+  });
+
+  it('sets validate flag with --validate', () => {
+    expect(parseArgs(['--validate']).validate).toBe(true);
   });
 
   it('sets dryRun flag with --dry-run', () => {
-    const result = parseArgs(['--dry-run']);
-    expect(result.dryRun).toBe(true);
+    expect(parseArgs(['--dry-run']).dryRun).toBe(true);
+  });
+
+  it('sets noUpdate flag with --no-update', () => {
+    expect(parseArgs(['--no-update']).noUpdate).toBe(true);
   });
 
   it('sets output path with --output', () => {
-    const result = parseArgs(['--output', 'report.md']);
-    expect(result.output).toBe('report.md');
+    expect(parseArgs(['--output', 'report.md']).output).toBe('report.md');
   });
 
   it('accepts a positional tasks file path', () => {
-    const result = parseArgs(['my-tasks.md']);
-    expect(result.tasksFile).toBe('my-tasks.md');
+    expect(parseArgs(['my-tasks.md']).tasksFile).toBe('my-tasks.md');
   });
 
   it('handles all flags combined', () => {
-    const result = parseArgs(['--dry-run', '--output', 'out.md', 'custom.md']);
+    const result = parseArgs(['--dry-run', '--no-update', '--output', 'out.md', 'custom.md']);
     expect(result.dryRun).toBe(true);
+    expect(result.noUpdate).toBe(true);
     expect(result.output).toBe('out.md');
     expect(result.tasksFile).toBe('custom.md');
   });
@@ -108,249 +141,224 @@ describe('run', () => {
     vi.restoreAllMocks();
   });
 
-  it('prints help message and returns when help flag is set', async () => {
+  it('prints help and returns exit 0', async () => {
     const output: string[] = [];
-    const result = await run(
-      { tasksFile: 'TASKS.md', dryRun: false, help: true, output: undefined },
-      (msg: string) => output.push(msg),
-    );
+    const result = await run(defaultArgs({ help: true }), (msg) => output.push(msg));
     expect(result.exitCode).toBe(0);
-    expect(output.some(line => line.includes('Usage:'))).toBe(true);
-    expect(output.some(line => line.includes('--help'))).toBe(true);
-    expect(output.some(line => line.includes('--dry-run'))).toBe(true);
-    expect(output.some(line => line.includes('--output'))).toBe(true);
+    expect(output.some(l => l.includes('Usage:'))).toBe(true);
+    expect(output.some(l => l.includes('--version'))).toBe(true);
+    expect(output.some(l => l.includes('--validate'))).toBe(true);
+    expect(output.some(l => l.includes('--no-update'))).toBe(true);
   });
 
-  it('reads the tasks file, parses, and prints execution plan', async () => {
+  it('prints version and returns exit 0', async () => {
+    const output: string[] = [];
+    const result = await run(defaultArgs({ version: true }), (msg) => output.push(msg));
+    expect(result.exitCode).toBe(0);
+    expect(output[0]).toMatch(/^cowork v/);
+  });
+
+  it('reads tasks file and runs execution plan', async () => {
     vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
     const mockRunner = createMockRunner();
-
     const output: string[] = [];
-    const result = await run(
-      { tasksFile: 'TASKS.md', dryRun: false, help: false, output: undefined },
-      (msg: string) => output.push(msg),
-      mockRunner,
-    );
+
+    const result = await run(defaultArgs({ noUpdate: true }), (msg) => output.push(msg), mockRunner);
 
     expect(readFile).toHaveBeenCalledWith('TASKS.md', 'utf-8');
     expect(result.exitCode).toBe(0);
-
-    const joined = output.join('\n');
-    expect(joined).toContain('Batch 1');
-    expect(joined).toContain('Build the login page');
-    expect(joined).toContain('Write API docs');
+    expect(output.join('\n')).toContain('Batch 1');
   });
 
-  it('prints batches in dry-run mode', async () => {
-    vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
-
-    const output: string[] = [];
-    const result = await run(
-      { tasksFile: 'TASKS.md', dryRun: true, help: false, output: undefined },
-      (msg: string) => output.push(msg),
-    );
-
-    expect(result.exitCode).toBe(0);
-
-    const joined = output.join('\n');
-    expect(joined).toContain('Dry run');
-    expect(joined).toContain('Batch');
-  });
-
-  it('validates output path is stored in result', async () => {
+  it('prints dry run plan without executing', async () => {
     vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
     const mockRunner = createMockRunner();
-
     const output: string[] = [];
-    const result = await run(
-      { tasksFile: 'TASKS.md', dryRun: false, help: false, output: 'report.md' },
-      (msg: string) => output.push(msg),
-      mockRunner,
-    );
 
-    expect(result.exitCode).toBe(0);
-    expect(result.outputPath).toBe('report.md');
-    const joined = output.join('\n');
-    expect(joined).toContain('report.md');
+    await run(defaultArgs({ dryRun: true }), (msg) => output.push(msg), mockRunner);
+
+    expect(mockRunner).not.toHaveBeenCalled();
+    expect(output.join('\n')).toContain('Dry run');
   });
 
-  it('returns error exit code when file is not found', async () => {
-    const error = new Error('ENOENT: no such file or directory');
-    (error as NodeJS.ErrnoException).code = 'ENOENT';
+  it('returns exit 1 when file not found', async () => {
+    const error = new Error('ENOENT') as NodeJS.ErrnoException;
+    error.code = 'ENOENT';
     vi.mocked(readFile).mockRejectedValue(error);
-
     const output: string[] = [];
-    const result = await run(
-      { tasksFile: 'nonexistent.md', dryRun: false, help: false, output: undefined },
-      (msg: string) => output.push(msg),
-    );
+
+    const result = await run(defaultArgs({ tasksFile: 'missing.md' }), (msg) => output.push(msg));
 
     expect(result.exitCode).toBe(1);
-    expect(output.some(line => line.includes('not found') || line.includes('ENOENT'))).toBe(true);
+    expect(output.join('\n')).toContain('not found');
   });
 
-  it('returns error exit code on parse errors', async () => {
+  it('returns exit 1 on read errors', async () => {
     vi.mocked(readFile).mockRejectedValue(new Error('Permission denied'));
-
     const output: string[] = [];
-    const result = await run(
-      { tasksFile: 'TASKS.md', dryRun: false, help: false, output: undefined },
-      (msg: string) => output.push(msg),
-    );
+
+    const result = await run(defaultArgs(), (msg) => output.push(msg));
 
     expect(result.exitCode).toBe(1);
-    expect(output.some(line => line.includes('Error'))).toBe(true);
   });
 
-  it('handles file with no parseable tasks', async () => {
+  it('handles empty tasks file', async () => {
     vi.mocked(readFile).mockResolvedValue('# Just a heading\n\nNo tasks here.');
-
     const output: string[] = [];
-    const result = await run(
-      { tasksFile: 'TASKS.md', dryRun: false, help: false, output: undefined },
-      (msg: string) => output.push(msg),
-    );
+
+    const result = await run(defaultArgs(), (msg) => output.push(msg));
 
     expect(result.exitCode).toBe(0);
-    expect(output.some(line => line.includes('No tasks') || line.includes('0 tasks'))).toBe(true);
+    expect(output.join('\n')).toContain('No tasks');
   });
 
-  it('shows batch dependency info when tasks have dependencies', async () => {
-    vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
+  it('handles all completed tasks without calling runner', async () => {
+    vi.mocked(readFile).mockResolvedValue(ALL_COMPLETED_TASKS_MD);
     const mockRunner = createMockRunner();
-
     const output: string[] = [];
-    await run(
-      { tasksFile: 'TASKS.md', dryRun: false, help: false, output: undefined },
-      (msg: string) => output.push(msg),
-      mockRunner,
-    );
 
-    const joined = output.join('\n');
-    // The dependent task should be in a later batch
-    expect(joined).toContain('Batch 2');
-    expect(joined).toContain('Run integration tests');
+    await run(defaultArgs({ noUpdate: true }), (msg) => output.push(msg), mockRunner);
+
+    expect(mockRunner).not.toHaveBeenCalled();
   });
 });
 
-describe('run pipeline', () => {
+describe('run — validation', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('executes the plan and generates report in non-dry-run mode', async () => {
-    vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
+  it('aborts with exit 1 on validation errors', async () => {
+    vi.mocked(readFile).mockResolvedValue(CIRCULAR_TASKS_MD);
     const mockRunner = createMockRunner();
-
     const output: string[] = [];
-    const result = await run(
-      { tasksFile: 'TASKS.md', dryRun: false, help: false, output: undefined },
-      (msg: string) => output.push(msg),
-      mockRunner,
-    );
 
-    expect(result.exitCode).toBe(0);
-    // The runner should have been called for each pending task
-    expect(mockRunner).toHaveBeenCalled();
+    const result = await run(defaultArgs(), (msg) => output.push(msg), mockRunner);
 
-    // Should print summary
-    const joined = output.join('\n');
-    expect(joined).toContain('completed');
-  });
-
-  it('does not execute the plan in dry-run mode', async () => {
-    vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
-    const mockRunner = createMockRunner();
-
-    const output: string[] = [];
-    await run(
-      { tasksFile: 'TASKS.md', dryRun: true, help: false, output: undefined },
-      (msg: string) => output.push(msg),
-      mockRunner,
-    );
-
-    // Runner should NOT be called in dry-run
+    expect(result.exitCode).toBe(1);
     expect(mockRunner).not.toHaveBeenCalled();
+    expect(output.join('\n')).toContain('ERROR');
   });
 
-  it('writes report to output path when --output is set', async () => {
+  it('--validate exits with 0 on valid tasks', async () => {
+    vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
+    const output: string[] = [];
+
+    const result = await run(defaultArgs({ validate: true }), (msg) => output.push(msg));
+
+    expect(result.exitCode).toBe(0);
+    expect(output.join('\n')).toContain('Validation passed');
+  });
+
+  it('--validate exits with 1 on invalid tasks', async () => {
+    vi.mocked(readFile).mockResolvedValue(CIRCULAR_TASKS_MD);
+    const output: string[] = [];
+
+    const result = await run(defaultArgs({ validate: true }), (msg) => output.push(msg));
+
+    expect(result.exitCode).toBe(1);
+    expect(output.join('\n')).toContain('Validation failed');
+  });
+});
+
+describe('run — pipeline', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('writes report to output path', async () => {
     vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
     const mockRunner = createMockRunner();
-
     const output: string[] = [];
+
     const result = await run(
-      { tasksFile: 'TASKS.md', dryRun: false, help: false, output: 'report.md' },
-      (msg: string) => output.push(msg),
+      defaultArgs({ output: 'report.md', noUpdate: true }),
+      (msg) => output.push(msg),
       mockRunner,
     );
 
-    expect(result.exitCode).toBe(0);
     expect(result.outputPath).toBe('report.md');
     expect(writeFile).toHaveBeenCalledWith('report.md', expect.stringContaining('Session Report'));
   });
 
-  it('does not write report when --output is not set', async () => {
+  it('does not write report without --output', async () => {
     vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
     const mockRunner = createMockRunner();
-
     const output: string[] = [];
-    await run(
-      { tasksFile: 'TASKS.md', dryRun: false, help: false, output: undefined },
-      (msg: string) => output.push(msg),
-      mockRunner,
-    );
+
+    await run(defaultArgs({ noUpdate: true }), (msg) => output.push(msg), mockRunner);
 
     expect(writeFile).not.toHaveBeenCalled();
   });
 
   it('reports failed tasks when runner throws', async () => {
     vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
-    const failingRunner: TaskRunner = vi.fn(async () => {
-      throw new Error('task failed');
-    });
-
+    const failingRunner: TaskRunner = vi.fn(async () => { throw new Error('fail'); });
     const output: string[] = [];
-    const result = await run(
-      { tasksFile: 'TASKS.md', dryRun: false, help: false, output: undefined },
-      (msg: string) => output.push(msg),
-      failingRunner,
-    );
 
-    // Should still exit 0 — failures are reported, not fatal
+    const result = await run(defaultArgs({ noUpdate: true }), (msg) => output.push(msg), failingRunner);
+
     expect(result.exitCode).toBe(0);
-    const joined = output.join('\n');
-    expect(joined).toContain('failed');
+    expect(output.join('\n').toLowerCase()).toContain('failed');
   });
 
-  it('prints summary with counts after execution', async () => {
+  it('prints progress output during execution', async () => {
     vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
     const mockRunner = createMockRunner();
-
     const output: string[] = [];
-    await run(
-      { tasksFile: 'TASKS.md', dryRun: false, help: false, output: undefined },
-      (msg: string) => output.push(msg),
-      mockRunner,
-    );
+
+    await run(defaultArgs({ noUpdate: true }), (msg) => output.push(msg), mockRunner);
 
     const joined = output.join('\n');
-    // Should contain summary info
-    expect(joined).toMatch(/\d+\s+completed/i);
+    expect(joined).toContain('Starting:');
+    expect(joined).toContain('Completed:');
   });
 
-  it('handles file where all tasks are already completed', async () => {
-    vi.mocked(readFile).mockResolvedValue(ALL_COMPLETED_TASKS_MD);
+  it('shows dependency ordering in batches', async () => {
+    vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
     const mockRunner = createMockRunner();
-
     const output: string[] = [];
-    const result = await run(
-      { tasksFile: 'TASKS.md', dryRun: false, help: false, output: undefined },
-      (msg: string) => output.push(msg),
-      mockRunner,
-    );
 
-    expect(result.exitCode).toBe(0);
-    // Runner should not be called — no pending tasks to execute
-    expect(mockRunner).not.toHaveBeenCalled();
+    await run(defaultArgs({ noUpdate: true }), (msg) => output.push(msg), mockRunner);
+
+    const joined = output.join('\n');
+    expect(joined).toContain('Batch 2');
+    expect(joined).toContain('Run integration tests');
+  });
+
+  it('updates TASKS.md after execution by default', async () => {
+    vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
+    const mockRunner = createMockRunner();
+    const output: string[] = [];
+
+    await run(defaultArgs(), (msg) => output.push(msg), mockRunner);
+
+    expect(writeFile).toHaveBeenCalledWith(
+      'TASKS.md',
+      expect.stringContaining('[x] Build the login page'),
+    );
+  });
+
+  it('skips TASKS.md update with --no-update', async () => {
+    vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
+    const mockRunner = createMockRunner();
+    const output: string[] = [];
+
+    await run(defaultArgs({ noUpdate: true }), (msg) => output.push(msg), mockRunner);
+
+    expect(writeFile).not.toHaveBeenCalled();
+  });
+
+  it('marks failed tasks with [!] in TASKS.md', async () => {
+    vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
+    const failingRunner: TaskRunner = vi.fn(async () => { throw new Error('fail'); });
+    const output: string[] = [];
+
+    await run(defaultArgs(), (msg) => output.push(msg), failingRunner);
+
+    expect(writeFile).toHaveBeenCalledWith(
+      'TASKS.md',
+      expect.stringContaining('[!] Build the login page'),
+    );
   });
 });

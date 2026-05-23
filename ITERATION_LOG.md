@@ -4,6 +4,24 @@
 
 ---
 
+## Iteration 7 — CLI polish: validation, --version, progress, task updates
+**Status:** PASSED
+**Tasks:** Validator integration + --validate, --version + progress, task status updates (3 tasks)
+**Tests:** 145 pass, 0 fail (7 new tests added, existing tests updated)
+**Coverage:** 97.15% statements, 92.48% on cli.ts (only main() uncovered)
+**Quality Gate:** PASSED (all criteria met)
+
+**Changes:**
+- Added --validate flag: runs validateTasks, exits 0/1 without executing
+- Added --version flag: prints version from package.json
+- Added --no-update flag: skip updating TASKS.md after execution
+- Added progress output: wraps TaskRunner to print Starting/Completed/Failed per task
+- Added updateTaskStatuses: replaces [ ] with [x]/[!] by title match after execution
+- Updated cli.test.ts: 31 tests covering all new flags and behaviors
+- Updated pipeline.test.ts: CliArgs interface compatibility
+
+---
+
 ## Iteration 6 — Full CLI pipeline integration test
 **Status:** PASSED
 **Task:** Add integration test for the full CLI pipeline

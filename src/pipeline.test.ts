@@ -30,6 +30,9 @@ function makeArgs(overrides: Partial<CliArgs> = {}): CliArgs {
     tasksFile: tasksPath(),
     dryRun: false,
     help: false,
+    version: false,
+    validate: false,
+    noUpdate: true,
     output: undefined,
     ...overrides,
   };
