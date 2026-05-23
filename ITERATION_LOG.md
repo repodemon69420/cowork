@@ -4,6 +4,21 @@
 
 ---
 
+## Iteration 6 — Full CLI pipeline integration test
+**Status:** PASSED
+**Task:** Add integration test for the full CLI pipeline
+**Tests:** 138 pass, 0 fail (6 new pipeline integration tests + 1 cli test)
+**Coverage:** 96.76% statements
+**Quality Gate:** PASSED (all criteria met)
+
+**Changes:**
+- Created src/pipeline.test.ts (220 lines) — 6 end-to-end tests with real filesystem
+- Tests cover: success path, partial failure, missing file, dry-run, empty tasks, dependency ordering
+- Updated src/cli.test.ts — added ALL_COMPLETED_TASKS_MD test case
+- Fixed lint: removed unused variable in pipeline test
+
+---
+
 ## Iteration 5 — CLI pipeline wiring + TASKS.md validation
 **Status:** PASSED
 **Tasks:** Wire end-to-end pipeline, Add TASKS.md validation (2 parallel)

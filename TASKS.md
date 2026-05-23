@@ -65,7 +65,7 @@
 
 ---
 
-## [ ] Add integration test for the full CLI pipeline
+## [x] Add integration test for the full CLI pipeline
 **Priority:** high
 **Type:** test
 **Context:** Test the complete lifecycle: write a TASKS.md fixture to a temp dir, invoke CLI run with a mock TaskRunner, assert it reads, parses, schedules, executes, generates report, and writes it. Cover success, partial-failure, and error paths.

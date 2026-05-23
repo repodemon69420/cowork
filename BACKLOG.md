@@ -58,7 +58,7 @@
 
 ---
 
-## [ ] Add integration test for the full CLI pipeline
+## [x] Add integration test for the full CLI pipeline
 **Priority:** high
 **Type:** test
 **Context:** End-to-end CLI pipeline test with mock TaskRunner.
