@@ -1,27 +1,44 @@
-# Morning Report — 2026-05-16
+# Morning Report — 2026-05-23
 
 ## Summary
-- **Tasks completed:** 2 / 2
+- **Tasks completed:** 13 / 13 (across 3 product mind cycles)
 - **Tasks failed:** 0
-- **Iterations:** 2
-- **Tests:** 62 passing, 100% coverage on logic modules
-- **Commits:** 3 (including this report)
+- **Iterations:** 7
+- **Tests:** 145 passing, 97% coverage
+- **Commits:** 8 (this session)
 
 ## Completed Tasks
 
-### Scaffold the project structure
-**Status:** Completed
-**Files changed:** package.json, tsconfig.json, eslint.config.js, vitest.config.ts, .gitignore, src/types.ts, src/parser.ts, src/scheduler.ts, src/reporter.ts, src/index.ts
-- Set up TypeScript Node.js project (ES2022, NodeNext, strict mode)
-- Created core modules: task parser (TASKS.md → Task[]), execution scheduler (dependency-aware parallel batching), and report generator (session results → markdown)
-- Configured Vitest with v8 coverage (80% threshold), ESLint with @typescript-eslint
+### Iteration 3 — CLI + FS Adapter + CI (parallel)
+**Files:** src/cli.ts, src/cli.test.ts, src/fs-adapter.ts, src/fs-adapter.test.ts, .github/workflows/ci.yml
+- Created CLI entry point with --help, --dry-run, --output flags
+- Built filesystem adapter (readFile, writeFile, fileExists) with error handling
+- Added GitHub Actions CI workflow for typecheck, lint, tests
 
-### Write unit tests for core utilities
-**Status:** Completed
-**Files changed:** src/parser.test.ts, src/scheduler.test.ts, src/reporter.test.ts, src/integration.test.ts
-- 47 unit tests covering parser, scheduler, and reporter individually
-- 15 integration tests covering the full pipeline end-to-end
-- Edge cases: unicode, long strings, all-failed/all-completed scenarios, missing dependencies, real TASKS.md parsing
+### Iteration 4 — Session Executor
+**Files:** src/executor.ts, src/executor.test.ts
+- Built batch executor with concurrency limiting (chunked Promise.allSettled)
+- AbortController-based per-task timeout (default 30m)
+- Full batch failure triggers skip of remaining batches
+
+### Iteration 5 — Pipeline Wiring + Validation (parallel)
+**Files:** src/runner.ts, src/runner.test.ts, src/validator.ts, src/validator.test.ts
+- Created TaskRunner implementations: process spawner (claude --print) and noop
+- Built TASKS.md validator with DFS-based circular dependency detection
+- Wired full CLI pipeline: read, parse, validate, schedule, execute, report
+
+### Iteration 6 — Pipeline Integration Tests
+**Files:** src/pipeline.test.ts
+- 6 end-to-end tests using real filesystem and mock runners
+- Covers: success, partial failure, missing file, dry-run, empty tasks, dependency ordering
+
+### Iteration 7 — CLI Polish (3 features)
+**Files:** src/cli.ts, src/cli.test.ts
+- --validate flag: validate tasks and exit without executing
+- --version flag: print version from package.json
+- --no-update flag: skip updating task statuses in TASKS.md
+- Live progress output: prints Starting/Completed/Failed per task
+- Auto-updates TASKS.md after execution: [x] completed, [!] failed
 
 ## Failed Tasks
 None.
@@ -29,37 +46,45 @@ None.
 ## Skipped Tasks
 None.
 
-## Commits
-- `b176b58` feat: [sdlc] scaffold project structure with TypeScript, tests, and tooling
-- `43be820` feat: [sdlc] add integration tests — 100% coverage on all logic modules
+## Commits (this session)
+- `3dcd33f` docs: product mind — add 4 new tasks to backlog
+- `454a758` feat: CLI entry point, FS adapter, CI workflow
+- `a2e12be` feat: session executor with concurrency, timeouts, batch skip
+- `693f7ea` docs: product mind — add 3 new pipeline tasks
+- `c1a986f` feat: end-to-end pipeline wiring + TASKS.md validation
+- `b070741` test: full CLI pipeline integration tests
+- `d7773ff` docs: product mind — add 3 polish tasks
+- `07bc90a` feat: CLI polish — validation, --version, progress, task updates
 
 ## Quality Metrics
 | Metric | Target | Actual |
 |--------|--------|--------|
-| Tests passing | 100% | 62/62 (100%) |
-| Coverage (statements) | ≥80% | 100% |
-| Coverage (branches) | ≥80% | 100% |
-| Max file length | <800 lines | 299 lines |
-| Max function length | <50 lines | 42 lines |
+| Tests passing | 100% | 145/145 (100%) |
+| Coverage (statements) | >=80% | 97.15% |
+| Coverage (branches) | >=80% | 97.76% |
+| Max file length | <800 lines | 465 lines |
+| Max function length | <50 lines | all pass |
 | CRITICAL issues | 0 | 0 |
 
 ## Architecture
 ```
 src/
-├── types.ts          (27 lines)  — Type definitions
-├── parser.ts         (71 lines)  — TASKS.md → Task[]
-├── scheduler.ts      (53 lines)  — Task[] → ExecutionBatch[]
-├── reporter.ts       (72 lines)  — SessionResult → markdown report
-├── index.ts          (4 lines)   — Barrel re-exports
-├── parser.test.ts    (299 lines) — 20 unit tests
-├── scheduler.test.ts (162 lines) — 13 unit tests
-├── reporter.test.ts  (162 lines) — 14 unit tests
-└── integration.test.ts           — 15 integration tests
+  types.ts           (27 lines)   — Type definitions
+  parser.ts          (71 lines)   — TASKS.md -> Task[]
+  scheduler.ts       (53 lines)   — Task[] -> ExecutionBatch[]
+  executor.ts        (117 lines)  — Concurrent batch execution
+  reporter.ts        (72 lines)   — SessionResult -> markdown
+  runner.ts          (66 lines)   — TaskRunner implementations
+  validator.ts       (135 lines)  — Validation + cycle detection
+  fs-adapter.ts      (50 lines)   — File I/O abstraction
+  cli.ts             (273 lines)  — CLI entry point + pipeline
+  index.ts           (8 lines)    — Barrel re-exports
+  + 11 test files    (2341 lines) — 145 tests total
 ```
 
 ## Recommendations
-1. **Next tasks to queue:** Add a CLI entry point (`src/cli.ts`) that wires the modules together — reads TASKS.md, runs the scheduler, and writes the report
-2. **Consider adding:** A file-system adapter module for reading/writing TASKS.md and MORNING_REPORT.md (keeps core modules pure)
-3. **Linting:** Run `npx eslint src/` to verify lint compliance (not yet run in CI)
-4. **CI/CD:** Add a GitHub Actions workflow for test + typecheck on push
-5. **The parser** now handles both `**Field:** value` and `- **Field:** value` formats — keep this flexible pattern for future field additions
+1. The tool is functional end-to-end: `npx cowork TASKS.md --output report.md`
+2. Consider adding error recovery/retry logic in the executor for transient failures
+3. Consider adding a `--concurrency` flag to let users tune the concurrency limit
+4. The runner shells out to `claude --print` — add alternative runners (HTTP API, local scripts)
+5. CI runs on push/PR to main — extend to feature branches if desired
