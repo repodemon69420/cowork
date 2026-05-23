@@ -43,3 +43,25 @@
 **Context:** Create `.github/workflows/ci.yml` that runs on push and pull request to main. Install dependencies, run typecheck, lint, and test with coverage. Fail the build if any step fails. Use Node 20.x and cache node_modules.
 
 ---
+
+## [ ] Wire end-to-end pipeline in CLI run mode
+**Priority:** high
+**Type:** code
+**Context:** Wire the full pipeline in the CLI's non-dry-run path.
+
+---
+
+## [ ] Add TASKS.md validation with actionable error messages
+**Priority:** medium
+**Type:** code
+**Context:** Structured validation diagnostics for TASKS.md.
+
+---
+
+## [ ] Add integration test for the full CLI pipeline
+**Priority:** high
+**Type:** test
+**Context:** End-to-end CLI pipeline test with mock TaskRunner.
+**Depends on:** Wire end-to-end pipeline in CLI run mode
+
+---
