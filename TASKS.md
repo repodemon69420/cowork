@@ -22,14 +22,31 @@
 
 ---
 
-<!-- INSTRUCTIONS:
-  Copy the template below for each new task.
-  Delete or comment out completed tasks.
+## [ ] Add CLI entry point that wires core modules together
+**Priority:** high
+**Type:** code
+**Context:** Create `src/cli.ts` that accepts a path to TASKS.md via process.argv, runs the parser and scheduler, and prints the execution plan to stdout. Include `--dry-run` to display batches without executing, `--output` to specify the morning report path, and `--help`. Register the bin entry in package.json so `npx cowork` works after install.
 
-## [ ] Task title
-**Priority:** high | medium | low
-**Type:** code | research | docs | refactor | test | design
-**Context:** What needs to be done and why.
-**Depends on:** (optional) other task titles this blocks on
+---
 
--->
+## [ ] Add file-system adapter for reading TASKS.md and writing reports
+**Priority:** high
+**Type:** code
+**Context:** Create `src/fs-adapter.ts` that exposes `readTasksFile(path: string): Promise<string>` and `writeReport(path: string, content: string): Promise<void>` with proper error handling (file not found, permission denied). This isolates all I/O behind a clean interface so the core modules stay pure and testable. Write corresponding tests.
+
+---
+
+## [ ] Build the session executor that runs task batches
+**Priority:** high
+**Type:** code
+**Context:** Create `src/executor.ts` that takes an `ExecutionBatch[]` from the scheduler and processes each batch. Capture results per task and map into `SessionResult` objects for the reporter. Implement configurable concurrency limit and timeout per task (default 30 minutes). This is the core runtime that makes cowork an actual orchestrator rather than just a planner.
+**Depends on:** Add file-system adapter for reading TASKS.md and writing reports
+
+---
+
+## [ ] Add GitHub Actions CI workflow for tests, typecheck, and linting
+**Priority:** medium
+**Type:** code
+**Context:** Create `.github/workflows/ci.yml` that runs on push and pull request to main. Install dependencies, run typecheck, lint, and test with coverage. Fail the build if any step fails. Use Node 20.x and cache node_modules.
+
+---
