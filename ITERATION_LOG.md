@@ -4,6 +4,27 @@
 
 ---
 
+## Iteration 3 — CLI, FS adapter, CI workflow
+**Status:** PASSED
+**Tasks:** Add CLI entry point, Add FS adapter, Add CI workflow (3 parallel)
+**Tests:** 95 pass, 0 fail (33 new tests added)
+**Coverage:** 94.98% statements, 100% on all logic modules except cli.ts entry point
+**Quality Gate:** PASSED (all criteria met)
+
+**Changes:**
+- Created src/cli.ts (158 lines) — CLI entry point with --help, --dry-run, --output flags
+- Created src/cli.test.ts (208 lines) — 17 tests for arg parsing and execution
+- Created src/fs-adapter.ts (50 lines) — readFile, writeFile, fileExists with error handling
+- Created src/fs-adapter.test.ts (103 lines) — 10 integration tests with real temp files
+- Created src/fs-adapter-errors.test.ts (65 lines) — 6 mock-based tests for error branches
+- Created .github/workflows/ci.yml — CI pipeline for typecheck, lint, test
+- Added @types/node to devDependencies
+- Updated src/index.ts with fs-adapter exports
+- Fixed lint: removed unused imports and variables
+- Added bin entry to package.json for `npx cowork`
+
+---
+
 ## Iteration 2 — Write unit tests for core utilities
 **Status:** PASSED
 **Task:** Write unit tests for core utilities

@@ -2,3 +2,4 @@ export { Task, TaskStatus, TaskPriority, TaskType, ExecutionBatch, SessionResult
 export { parseTasksFile } from './parser.js';
 export { buildExecutionPlan } from './scheduler.js';
 export { generateReport, formatTaskSection } from './reporter.js';
+export { readFile, writeFile, fileExists } from './fs-adapter.js';
