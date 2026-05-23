@@ -29,7 +29,7 @@
 
 ---
 
-## [ ] Build the session executor that runs task batches
+## [x] Build the session executor that runs task batches
 **Priority:** high
 **Type:** code
 **Context:** Create `src/executor.ts` that takes an `ExecutionBatch[]` from the scheduler and processes each batch. Capture results per task and map into `SessionResult` objects for the reporter. Implement configurable concurrency limit and timeout per task (default 30 minutes). This is the core runtime that makes cowork an actual orchestrator rather than just a planner.

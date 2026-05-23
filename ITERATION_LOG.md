@@ -4,6 +4,23 @@
 
 ---
 
+## Iteration 4 — Session executor
+**Status:** PASSED
+**Task:** Build the session executor that runs task batches
+**Tests:** 108 pass, 0 fail (13 new tests added)
+**Coverage:** 100% on executor.ts
+**Quality Gate:** PASSED (all criteria met)
+
+**Changes:**
+- Created src/executor.ts (117 lines) — executePlan, TaskRunner, ExecutorConfig
+- Created src/executor.test.ts (256 lines) — 13 tests covering success, failure, parallel, sequential, timeout, concurrency limit, batch skip, immutability
+- Updated src/index.ts with executor exports
+- Concurrency limiter via chunked Promise.allSettled
+- AbortController-based timeout per task
+- Full batch failure triggers skip of remaining batches
+
+---
+
 ## Iteration 3 — CLI, FS adapter, CI workflow
 **Status:** PASSED
 **Tasks:** Add CLI entry point, Add FS adapter, Add CI workflow (3 parallel)
