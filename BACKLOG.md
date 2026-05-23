@@ -65,3 +65,21 @@
 **Depends on:** Wire end-to-end pipeline in CLI run mode
 
 ---
+
+## [ ] Integrate validator into CLI with --validate flag
+**Priority:** high
+**Type:** code
+
+---
+
+## [ ] Add --version flag and progress output during execution
+**Priority:** medium
+**Type:** code
+
+---
+
+## [ ] Mark completed tasks in TASKS.md after execution
+**Priority:** medium
+**Type:** code
+
+---

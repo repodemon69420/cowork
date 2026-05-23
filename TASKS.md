@@ -72,3 +72,24 @@
 **Depends on:** Wire end-to-end pipeline in CLI run mode
 
 ---
+
+## [ ] Integrate validator into CLI with --validate flag
+**Priority:** high
+**Type:** code
+**Context:** Wire validateTasks into the run() function after parsing to abort on validation errors. Add --validate flag for validation-only mode.
+
+---
+
+## [ ] Add --version flag and progress output during execution
+**Priority:** medium
+**Type:** code
+**Context:** Add --version that prints version from package.json. Add progress logging: print batch/task status during execution via wrapping the runner.
+
+---
+
+## [ ] Mark completed tasks in TASKS.md after execution
+**Priority:** medium
+**Type:** code
+**Context:** After execution, update TASKS.md: replace [ ] with [x] for completed and [!] for failed. Add --no-update flag to skip. Match by title.
+
+---
