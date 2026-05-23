@@ -4,6 +4,25 @@
 
 ---
 
+## Iteration 5 — CLI pipeline wiring + TASKS.md validation
+**Status:** PASSED
+**Tasks:** Wire end-to-end pipeline, Add TASKS.md validation (2 parallel)
+**Tests:** 131 pass, 0 fail (23 new tests added)
+**Coverage:** 96.76% statements, 100% on all core logic modules
+**Quality Gate:** PASSED (all criteria met)
+
+**Changes:**
+- Created src/runner.ts (68 lines) — createProcessRunner (spawns `claude --print`), createNoopRunner
+- Created src/runner.test.ts (97 lines) — 7 tests with vi.mock for child_process
+- Created src/validator.ts (136 lines) — validateTasks with circular dep detection (DFS)
+- Created src/validator.test.ts — 10 tests: duplicates, cycles, self-deps, unknown deps, missing context
+- Modified src/cli.ts — wired full pipeline: executor + reporter + fs-adapter in run mode
+- Updated src/cli.test.ts — 6 new pipeline tests, mock runner injection
+- Updated src/index.ts with runner + validator exports
+- Fixed ESM mock issues using vi.hoisted pattern
+
+---
+
 ## Iteration 4 — Session executor
 **Status:** PASSED
 **Task:** Build the session executor that runs task batches

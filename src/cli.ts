@@ -5,7 +5,12 @@ import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { parseTasksFile } from './parser.js';
 import { buildExecutionPlan } from './scheduler.js';
-import type { ExecutionBatch } from './types.js';
+import { executePlan } from './executor.js';
+import type { TaskRunner } from './executor.js';
+import { generateReport } from './reporter.js';
+import { writeFile } from './fs-adapter.js';
+import { createProcessRunner } from './runner.js';
+import type { ExecutionBatch, SessionResult } from './types.js';
 
 export interface CliArgs {
   tasksFile: string;
@@ -83,6 +88,7 @@ function formatBatches(
 export async function run(
   args: CliArgs,
   print: (msg: string) => void = console.log,
+  runner?: TaskRunner,
 ): Promise<RunResult> {
   if (args.help) {
     printHelp(print);
@@ -116,20 +122,38 @@ export async function run(
     print('');
     formatBatches(batches, print);
     print(`Total: ${tasks.length} tasks in ${batches.length} batches`);
-  } else {
-    print(`Found ${tasks.length} tasks, planned ${batches.length} batches:`);
-    print('');
-    formatBatches(batches, print);
+    return { exitCode: 0 };
   }
 
-  const result: RunResult = { exitCode: 0 };
+  print(`Found ${tasks.length} tasks, planned ${batches.length} batches:`);
+  print('');
+  formatBatches(batches, print);
+
+  const activeRunner = runner ?? createProcessRunner();
+  const sessionResult = await executePlan(batches, activeRunner);
+  const report = generateReport(sessionResult, []);
+
+  printSummary(sessionResult, print);
+
+  const runResult: RunResult = { exitCode: 0 };
 
   if (args.output) {
-    result.outputPath = args.output;
-    print(`Report will be written to: ${args.output}`);
+    await writeFile(args.output, report);
+    runResult.outputPath = args.output;
+    print(`Report written to: ${args.output}`);
   }
 
-  return result;
+  return runResult;
+}
+
+function printSummary(
+  result: SessionResult,
+  print: (msg: string) => void,
+): void {
+  const total =
+    result.completed.length + result.failed.length + result.skipped.length;
+  print('');
+  print(`Done: ${result.completed.length} completed, ${result.failed.length} failed, ${result.skipped.length} skipped (${total} total)`);
 }
 
 async function main(): Promise<void> {

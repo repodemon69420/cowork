@@ -44,14 +44,14 @@
 
 ---
 
-## [ ] Wire end-to-end pipeline in CLI run mode
+## [x] Wire end-to-end pipeline in CLI run mode
 **Priority:** high
 **Type:** code
 **Context:** Wire the full pipeline in the CLI's non-dry-run path.
 
 ---
 
-## [ ] Add TASKS.md validation with actionable error messages
+## [x] Add TASKS.md validation with actionable error messages
 **Priority:** medium
 **Type:** code
 **Context:** Structured validation diagnostics for TASKS.md.

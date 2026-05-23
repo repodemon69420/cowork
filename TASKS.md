@@ -51,14 +51,14 @@
 
 ---
 
-## [ ] Wire end-to-end pipeline in CLI run mode
+## [x] Wire end-to-end pipeline in CLI run mode
 **Priority:** high
 **Type:** code
 **Context:** Wire the full pipeline in the CLI's non-dry-run path: read TASKS.md via fs-adapter, parse, schedule, execute via executePlan with a TaskRunner, generate report, and write it to output path. The TaskRunner should be a module that spawns subprocesses. Collect git commit hashes during execution for the report.
 
 ---
 
-## [ ] Add TASKS.md validation with actionable error messages
+## [x] Add TASKS.md validation with actionable error messages
 **Priority:** medium
 **Type:** code
 **Context:** Add a validateTasksFile function that returns structured diagnostics: missing required fields, unknown priorities/types, circular dependencies in dependsOn, and references to nonexistent task titles. Integrate into CLI — validation errors halt execution with exit code 1 in run mode, shown but non-blocking in dry-run mode.

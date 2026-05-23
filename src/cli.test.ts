@@ -1,11 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { parseArgs, run } from './cli.js';
+import type { TaskRunner } from './executor.js';
 
 vi.mock('node:fs/promises', () => ({
   readFile: vi.fn(),
 }));
 
+vi.mock('./fs-adapter.js', () => ({
+  writeFile: vi.fn(async () => {}),
+}));
+
 import { readFile } from 'node:fs/promises';
+import { writeFile } from './fs-adapter.js';
 
 const SAMPLE_TASKS_MD = `# Nightly Task Queue
 
@@ -31,6 +37,20 @@ const SAMPLE_TASKS_MD = `# Nightly Task Queue
 **Context:** Run full integration test suite.
 **Depends on:** Build the login page
 `;
+
+const ALL_COMPLETED_TASKS_MD = `# Nightly Task Queue
+
+---
+
+## [x] Already done
+**Priority:** high
+**Type:** code
+**Context:** This task is already completed.
+`;
+
+function createMockRunner(): TaskRunner {
+  return vi.fn(async () => {});
+}
 
 describe('parseArgs', () => {
   it('returns defaults when no args provided', () => {
@@ -103,11 +123,13 @@ describe('run', () => {
 
   it('reads the tasks file, parses, and prints execution plan', async () => {
     vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
+    const mockRunner = createMockRunner();
 
     const output: string[] = [];
     const result = await run(
       { tasksFile: 'TASKS.md', dryRun: false, help: false, output: undefined },
       (msg: string) => output.push(msg),
+      mockRunner,
     );
 
     expect(readFile).toHaveBeenCalledWith('TASKS.md', 'utf-8');
@@ -137,11 +159,13 @@ describe('run', () => {
 
   it('validates output path is stored in result', async () => {
     vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
+    const mockRunner = createMockRunner();
 
     const output: string[] = [];
     const result = await run(
       { tasksFile: 'TASKS.md', dryRun: false, help: false, output: 'report.md' },
       (msg: string) => output.push(msg),
+      mockRunner,
     );
 
     expect(result.exitCode).toBe(0);
@@ -193,16 +217,140 @@ describe('run', () => {
 
   it('shows batch dependency info when tasks have dependencies', async () => {
     vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
+    const mockRunner = createMockRunner();
 
     const output: string[] = [];
     await run(
       { tasksFile: 'TASKS.md', dryRun: false, help: false, output: undefined },
       (msg: string) => output.push(msg),
+      mockRunner,
     );
 
     const joined = output.join('\n');
     // The dependent task should be in a later batch
     expect(joined).toContain('Batch 2');
     expect(joined).toContain('Run integration tests');
+  });
+});
+
+describe('run pipeline', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('executes the plan and generates report in non-dry-run mode', async () => {
+    vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
+    const mockRunner = createMockRunner();
+
+    const output: string[] = [];
+    const result = await run(
+      { tasksFile: 'TASKS.md', dryRun: false, help: false, output: undefined },
+      (msg: string) => output.push(msg),
+      mockRunner,
+    );
+
+    expect(result.exitCode).toBe(0);
+    // The runner should have been called for each pending task
+    expect(mockRunner).toHaveBeenCalled();
+
+    // Should print summary
+    const joined = output.join('\n');
+    expect(joined).toContain('completed');
+  });
+
+  it('does not execute the plan in dry-run mode', async () => {
+    vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
+    const mockRunner = createMockRunner();
+
+    const output: string[] = [];
+    await run(
+      { tasksFile: 'TASKS.md', dryRun: true, help: false, output: undefined },
+      (msg: string) => output.push(msg),
+      mockRunner,
+    );
+
+    // Runner should NOT be called in dry-run
+    expect(mockRunner).not.toHaveBeenCalled();
+  });
+
+  it('writes report to output path when --output is set', async () => {
+    vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
+    const mockRunner = createMockRunner();
+
+    const output: string[] = [];
+    const result = await run(
+      { tasksFile: 'TASKS.md', dryRun: false, help: false, output: 'report.md' },
+      (msg: string) => output.push(msg),
+      mockRunner,
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.outputPath).toBe('report.md');
+    expect(writeFile).toHaveBeenCalledWith('report.md', expect.stringContaining('Session Report'));
+  });
+
+  it('does not write report when --output is not set', async () => {
+    vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
+    const mockRunner = createMockRunner();
+
+    const output: string[] = [];
+    await run(
+      { tasksFile: 'TASKS.md', dryRun: false, help: false, output: undefined },
+      (msg: string) => output.push(msg),
+      mockRunner,
+    );
+
+    expect(writeFile).not.toHaveBeenCalled();
+  });
+
+  it('reports failed tasks when runner throws', async () => {
+    vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
+    const failingRunner: TaskRunner = vi.fn(async () => {
+      throw new Error('task failed');
+    });
+
+    const output: string[] = [];
+    const result = await run(
+      { tasksFile: 'TASKS.md', dryRun: false, help: false, output: undefined },
+      (msg: string) => output.push(msg),
+      failingRunner,
+    );
+
+    // Should still exit 0 — failures are reported, not fatal
+    expect(result.exitCode).toBe(0);
+    const joined = output.join('\n');
+    expect(joined).toContain('failed');
+  });
+
+  it('prints summary with counts after execution', async () => {
+    vi.mocked(readFile).mockResolvedValue(SAMPLE_TASKS_MD);
+    const mockRunner = createMockRunner();
+
+    const output: string[] = [];
+    await run(
+      { tasksFile: 'TASKS.md', dryRun: false, help: false, output: undefined },
+      (msg: string) => output.push(msg),
+      mockRunner,
+    );
+
+    const joined = output.join('\n');
+    // Should contain summary info
+    expect(joined).toMatch(/\d+\s+completed/i);
+  });
+
+  it('handles file where all tasks are already completed', async () => {
+    vi.mocked(readFile).mockResolvedValue(ALL_COMPLETED_TASKS_MD);
+    const mockRunner = createMockRunner();
+
+    const output: string[] = [];
+    const result = await run(
+      { tasksFile: 'TASKS.md', dryRun: false, help: false, output: undefined },
+      (msg: string) => output.push(msg),
+      mockRunner,
+    );
+
+    expect(result.exitCode).toBe(0);
+    // Runner should not be called — no pending tasks to execute
+    expect(mockRunner).not.toHaveBeenCalled();
   });
 });
