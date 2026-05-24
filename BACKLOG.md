@@ -50,3 +50,32 @@
 **Context:** Create .github/workflows/ci.yml that runs on push and PR to main. Steps: checkout, setup Node 20, npm ci, npm run typecheck, npm run lint, npm run test:coverage. Use a single job. Pin the actions to specific versions (actions/checkout@v4, actions/setup-node@v4).
 
 ---
+
+## [x] Fix lint error — unused import in integration tests
+**Priority:** high
+**Type:** refactor
+**Context:** src/integration.test.ts imports formatTaskSection but never uses it.
+
+---
+
+## [x] Add task serializer module
+**Priority:** high
+**Type:** code
+**Context:** Create src/serializer.ts — inverse of parseTasksFile. Converts Task[] back to TASKS.md markdown format.
+
+---
+
+## [x] Add config reader module
+**Priority:** medium
+**Type:** code
+**Context:** Create src/config.ts to parse .claude/cowork-config.json into typed CoworkConfig interface.
+
+---
+
+## [x] Add task update command to CLI
+**Priority:** medium
+**Type:** code
+**Context:** Add --mark-done flag to CLI for automated task status updates.
+**Depends on:** Add task serializer module
+
+---

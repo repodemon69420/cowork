@@ -1,30 +1,45 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { parseArgs, formatPlan, main } from './cli.js';
 import type { Task, ExecutionPlan } from './types.js';
+import { writeFileSync, readFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 describe('parseArgs', () => {
   it('returns defaults when no args given', () => {
-    expect(parseArgs([])).toEqual({ file: 'TASKS.md', help: false });
+    expect(parseArgs([])).toEqual({ file: 'TASKS.md', help: false, markDone: undefined });
   });
 
   it('parses --file flag', () => {
-    expect(parseArgs(['--file', 'custom.md'])).toEqual({ file: 'custom.md', help: false });
+    expect(parseArgs(['--file', 'custom.md'])).toEqual({ file: 'custom.md', help: false, markDone: undefined });
   });
 
   it('parses --help flag', () => {
-    expect(parseArgs(['--help'])).toEqual({ file: 'TASKS.md', help: true });
+    expect(parseArgs(['--help'])).toEqual({ file: 'TASKS.md', help: true, markDone: undefined });
   });
 
   it('parses -h shorthand', () => {
-    expect(parseArgs(['-h'])).toEqual({ file: 'TASKS.md', help: true });
+    expect(parseArgs(['-h'])).toEqual({ file: 'TASKS.md', help: true, markDone: undefined });
   });
 
   it('parses --file and --help together', () => {
-    expect(parseArgs(['--file', 'other.md', '--help'])).toEqual({ file: 'other.md', help: true });
+    expect(parseArgs(['--file', 'other.md', '--help'])).toEqual({ file: 'other.md', help: true, markDone: undefined });
   });
 
   it('ignores --file when no value follows', () => {
-    expect(parseArgs(['--file'])).toEqual({ file: 'TASKS.md', help: false });
+    expect(parseArgs(['--file'])).toEqual({ file: 'TASKS.md', help: false, markDone: undefined });
+  });
+
+  it('parses --mark-done flag', () => {
+    expect(parseArgs(['--mark-done', 'My Task'])).toEqual({ file: 'TASKS.md', help: false, markDone: 'My Task' });
+  });
+
+  it('parses --mark-done with --file together', () => {
+    expect(parseArgs(['--file', 'todo.md', '--mark-done', 'Fix bug'])).toEqual({
+      file: 'todo.md',
+      help: false,
+      markDone: 'Fix bug',
+    });
   });
 });
 
@@ -91,9 +106,12 @@ describe('formatPlan', () => {
 
 describe('main', () => {
   const originalArgv = process.argv;
-  let logSpy: ReturnType<typeof vi.spyOn>;
-  let errorSpy: ReturnType<typeof vi.spyOn>;
-  let exitSpy: ReturnType<typeof vi.spyOn>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let logSpy: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let errorSpy: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let exitSpy: any;
 
   beforeEach(() => {
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -125,5 +143,65 @@ describe('main', () => {
     main();
     expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Error:'));
     expect(exitSpy).toHaveBeenCalledWith(1);
+  });
+
+  describe('--mark-done', () => {
+    let tmpDir: string;
+
+    const TASK_CONTENT = [
+      '# Status: ON',
+      '',
+      '# Nightly Task Queue',
+      '',
+      '---',
+      '',
+      '## [ ] Write tests',
+      '**Priority:** high',
+      '**Type:** test',
+      '**Context:** unit tests',
+      '',
+      '---',
+      '',
+      '## [x] Setup CI',
+      '**Priority:** medium',
+      '**Type:** code',
+      '**Context:** pipeline',
+    ].join('\n');
+
+    beforeEach(() => {
+      tmpDir = mkdtempSync(join(tmpdir(), 'cli-test-'));
+    });
+
+    afterEach(() => {
+      rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('marks a pending task as done and updates the file', () => {
+      const tmpFile = join(tmpDir, 'tasks.md');
+      writeFileSync(tmpFile, TASK_CONTENT, 'utf-8');
+      process.argv = ['node', 'cli.js', '--file', tmpFile, '--mark-done', 'Write tests'];
+      main();
+      expect(logSpy).toHaveBeenCalledWith('Marked done: Write tests');
+      const updated = readFileSync(tmpFile, 'utf-8');
+      expect(updated).toContain('[x] Write tests');
+    });
+
+    it('exits 1 for a non-existent task', () => {
+      const tmpFile = join(tmpDir, 'tasks.md');
+      writeFileSync(tmpFile, TASK_CONTENT, 'utf-8');
+      process.argv = ['node', 'cli.js', '--file', tmpFile, '--mark-done', 'No such task'];
+      main();
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Task not found'));
+      expect(exitSpy).toHaveBeenCalledWith(1);
+    });
+
+    it('exits 1 for an already completed task', () => {
+      const tmpFile = join(tmpDir, 'tasks.md');
+      writeFileSync(tmpFile, TASK_CONTENT, 'utf-8');
+      process.argv = ['node', 'cli.js', '--file', tmpFile, '--mark-done', 'Setup CI'];
+      main();
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('already completed'));
+      expect(exitSpy).toHaveBeenCalledWith(1);
+    });
   });
 });

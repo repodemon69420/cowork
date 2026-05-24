@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { parseTasksFile } from './parser.js';
 import { buildExecutionPlan } from './scheduler.js';
-import { generateReport, formatTaskSection } from './reporter.js';
+import { generateReport } from './reporter.js';
 import type { Task, SessionResult } from './types.js';
 
 const __filename = fileURLToPath(import.meta.url);

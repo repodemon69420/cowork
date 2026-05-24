@@ -4,6 +4,23 @@
 
 ---
 
+## Iteration 4 — Serializer, config reader, CLI mark-done, lint fix
+**Status:** PASSED
+**Tasks:** Fix lint error, Add task serializer, Add config reader, Add CLI mark-done command
+**Tests:** 110 pass, 0 fail (19 new tests added)
+**Coverage:** 98.88% statements overall
+**Quality Gate:** PASSED (all criteria met)
+
+**Changes:**
+- Fixed unused import lint error in integration.test.ts
+- Created src/serializer.ts (27 lines) — serializeTasksFile round-trips with parseTasksFile
+- Created src/config.ts (70 lines) — parseConfig, readConfig, loadConfig with validation
+- Added --mark-done flag to CLI with file I/O write-back
+- Fixed TypeScript errors: changed generic constraint to `extends object`, fixed spy types
+- 7 serializer tests, 7 config tests, 5 CLI mark-done tests
+
+---
+
 ## Iteration 3 — Feature expansion: fs-adapter, CLI, cycle detection, CI
 **Status:** PASSED
 **Tasks:** Fix @types/node, Add file system adapter, Add circular dep detection, Add CLI entry point, Add GitHub Actions CI
