@@ -159,3 +159,17 @@
 **Context:** The detectCycles function in src/scheduler.ts is not exported from src/index.ts. Export it. Also add cycle information to the --validate output — when cycles are detected during validation, show them as errors. Update the validate tests to cover this case.
 
 ---
+
+## [x] Wire runner into CLI with --dry-run flag
+**Priority:** high
+**Type:** code
+**Context:** Add a --dry-run flag to src/cli.ts that calls runFromFile from runner.ts. It reads TASKS.md, runs a dry-run iteration, and prints the log output. Uses the config from loadConfig() if available, otherwise uses a default config. This makes the runner accessible from the command line.
+
+---
+
+## [x] Verify TypeScript build and add prepare script
+**Priority:** medium
+**Type:** code
+**Context:** Run `npm run build` to verify TypeScript compiles to dist/. Fix any issues. Add a "prepare" script to package.json so the project builds on install. Verify the CLI shebang line is preserved in dist/cli.js. Make sure .gitignore includes dist/.
+
+---

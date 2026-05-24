@@ -4,6 +4,21 @@
 
 ---
 
+## Iteration 8 — CLI dry-run, build verification
+**Status:** PASSED
+**Tasks:** Wire runner into CLI with --dry-run, Verify build + add prepare script
+**Tests:** 187 pass, 0 fail (2 new tests added)
+**Coverage:** 97.18% statements overall
+**Quality Gate:** PASSED (all criteria met)
+
+**Changes:**
+- Added --dry-run flag to CLI wiring runner module into the command line
+- Verified `npm run build` compiles to dist/ correctly with shebang preserved
+- Added "prepare": "npm run build" script to package.json
+- Default config fallback when .claude/cowork-config.json unavailable
+
+---
+
 ## Iteration 7 — CLI status, runner module, cycle detection export
 **Status:** PASSED
 **Tasks:** Add --status to CLI, Add runner with dry-run, Export detectCycles + enhance validate

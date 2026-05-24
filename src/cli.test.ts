@@ -13,31 +13,31 @@ vi.mock('./git-adapter.js', () => ({
 
 describe('parseArgs', () => {
   it('returns defaults when no args given', () => {
-    expect(parseArgs([])).toEqual({ file: 'TASKS.md', help: false, validate: false, status: false, markDone: undefined });
+    expect(parseArgs([])).toEqual({ file: 'TASKS.md', help: false, validate: false, status: false, dryRun: false, markDone: undefined });
   });
 
   it('parses --file flag', () => {
-    expect(parseArgs(['--file', 'custom.md'])).toEqual({ file: 'custom.md', help: false, validate: false, status: false, markDone: undefined });
+    expect(parseArgs(['--file', 'custom.md'])).toEqual({ file: 'custom.md', help: false, validate: false, status: false, dryRun: false, markDone: undefined });
   });
 
   it('parses --help flag', () => {
-    expect(parseArgs(['--help'])).toEqual({ file: 'TASKS.md', help: true, validate: false, status: false, markDone: undefined });
+    expect(parseArgs(['--help'])).toEqual({ file: 'TASKS.md', help: true, validate: false, status: false, dryRun: false, markDone: undefined });
   });
 
   it('parses -h shorthand', () => {
-    expect(parseArgs(['-h'])).toEqual({ file: 'TASKS.md', help: true, validate: false, status: false, markDone: undefined });
+    expect(parseArgs(['-h'])).toEqual({ file: 'TASKS.md', help: true, validate: false, status: false, dryRun: false, markDone: undefined });
   });
 
   it('parses --file and --help together', () => {
-    expect(parseArgs(['--file', 'other.md', '--help'])).toEqual({ file: 'other.md', help: true, validate: false, status: false, markDone: undefined });
+    expect(parseArgs(['--file', 'other.md', '--help'])).toEqual({ file: 'other.md', help: true, validate: false, status: false, dryRun: false, markDone: undefined });
   });
 
   it('ignores --file when no value follows', () => {
-    expect(parseArgs(['--file'])).toEqual({ file: 'TASKS.md', help: false, validate: false, status: false, markDone: undefined });
+    expect(parseArgs(['--file'])).toEqual({ file: 'TASKS.md', help: false, validate: false, status: false, dryRun: false, markDone: undefined });
   });
 
   it('parses --mark-done flag', () => {
-    expect(parseArgs(['--mark-done', 'My Task'])).toEqual({ file: 'TASKS.md', help: false, validate: false, status: false, markDone: 'My Task' });
+    expect(parseArgs(['--mark-done', 'My Task'])).toEqual({ file: 'TASKS.md', help: false, validate: false, status: false, dryRun: false, markDone: 'My Task' });
   });
 
   it('parses --mark-done with --file together', () => {
@@ -46,16 +46,21 @@ describe('parseArgs', () => {
       help: false,
       validate: false,
       status: false,
+      dryRun: false,
       markDone: 'Fix bug',
     });
   });
 
   it('parses --validate flag', () => {
-    expect(parseArgs(['--validate'])).toEqual({ file: 'TASKS.md', help: false, validate: true, status: false, markDone: undefined });
+    expect(parseArgs(['--validate'])).toEqual({ file: 'TASKS.md', help: false, validate: true, status: false, dryRun: false, markDone: undefined });
   });
 
   it('parses --status flag', () => {
-    expect(parseArgs(['--status'])).toEqual({ file: 'TASKS.md', help: false, validate: false, status: true, markDone: undefined });
+    expect(parseArgs(['--status'])).toEqual({ file: 'TASKS.md', help: false, validate: false, status: true, dryRun: false, markDone: undefined });
+  });
+
+  it('parses --dry-run flag', () => {
+    expect(parseArgs(['--dry-run'])).toEqual({ file: 'TASKS.md', help: false, validate: false, status: false, dryRun: true, markDone: undefined });
   });
 });
 
@@ -330,6 +335,16 @@ describe('main', () => {
       expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('cycle'));
       expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('FAIL'));
       expect(exitSpy).toHaveBeenCalledWith(1);
+    });
+  });
+
+  describe('--dry-run', () => {
+    it('runs dry-run on a valid TASKS.md and prints log and summary', () => {
+      process.argv = ['node', 'cli.js', '--file', 'TASKS.md', '--dry-run'];
+      main();
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Starting iteration'));
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Dry run'));
+      expect(exitSpy).toHaveBeenCalledWith(0);
     });
   });
 });

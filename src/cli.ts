@@ -5,6 +5,9 @@ import { serializeTasksFile } from './serializer.js';
 import { buildExecutionPlan, detectCycles } from './scheduler.js';
 import { validateTasks } from './validator.js';
 import { getCurrentBranch, getLatestCommitHash, hasUncommittedChanges } from './git-adapter.js';
+import { runFromFile } from './runner.js';
+import { loadConfig } from './config.js';
+import type { CoworkConfig } from './config.js';
 import type { Task, ExecutionPlan } from './types.js';
 import { fileURLToPath } from 'node:url';
 
@@ -13,20 +16,22 @@ export interface CliArgs {
   help: boolean;
   validate: boolean;
   status: boolean;
+  dryRun: boolean;
   markDone?: string;
 }
 
 export function parseArgs(args: string[]): CliArgs {
-  let file = 'TASKS.md', help = false, validate = false, status = false;
+  let file = 'TASKS.md', help = false, validate = false, status = false, dryRun = false;
   let markDone: string | undefined;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--help' || args[i] === '-h') help = true;
     else if (args[i] === '--validate') validate = true;
     else if (args[i] === '--status') status = true;
+    else if (args[i] === '--dry-run') dryRun = true;
     else if (args[i] === '--file' && i + 1 < args.length) file = args[++i];
     else if (args[i] === '--mark-done' && i + 1 < args.length) markDone = args[++i];
   }
-  return { file, help, validate, status, markDone };
+  return { file, help, validate, status, dryRun, markDone };
 }
 
 export function formatPlan(tasks: Task[], plan: ExecutionPlan): string {
@@ -54,6 +59,7 @@ const USAGE = `Usage: cowork [options]
 
 Options:
   --file <path>        Path to tasks file (default: TASKS.md)
+  --dry-run            Plan tasks without executing them
   --mark-done <title>  Mark a task as completed
   --status             Show project and task status
   --validate           Validate the tasks file
@@ -77,6 +83,21 @@ export function main(): void {
       console.log(`Tasks: ${p} pending, ${c} completed, ${f} failed (${tasks.length} total)`);
       process.exit(0);
     } catch (err) { fail(err instanceof Error ? err.message : String(err)); }
+  }
+  if (cliArgs.dryRun) {
+    let config: CoworkConfig;
+    try { config = loadConfig(); } catch {
+      config = {
+        repo: { owner: 'local', name: 'cowork', url: '', localPath: process.cwd() },
+        orchestrator: { triggerId: 'cli', taskFile: cliArgs.file, outputFile: 'MORNING_REPORT.md' },
+        phone: { toggleIssueNumber: 0, toggleIssueTitle: '' },
+      };
+    }
+    const result = runFromFile(config, cliArgs.file, { dryRun: true });
+    for (const line of result.log) console.log(line);
+    const planned = result.context.plan?.batches.reduce((n, b) => n + b.tasks.length, 0) ?? 0;
+    console.log(`Dry run complete. ${planned} tasks planned.`);
+    process.exit(0);
   }
   if (cliArgs.validate) {
     try {
