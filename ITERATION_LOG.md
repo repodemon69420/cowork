@@ -4,6 +4,26 @@
 
 ---
 
+## Iteration 3 — Feature expansion: fs-adapter, CLI, cycle detection, CI
+**Status:** PASSED
+**Tasks:** Fix @types/node, Add file system adapter, Add circular dep detection, Add CLI entry point, Add GitHub Actions CI
+**Tests:** 91 pass, 0 fail (29 new tests added)
+**Coverage:** 99.28% statements overall, 96.66%+ on all logic modules
+**Quality Gate:** PASSED (all criteria met)
+
+**Changes:**
+- Fixed TypeScript build errors by adding @types/node
+- Created src/fs-adapter.ts (30 lines) — readFileContent, writeFileContent, fileExists
+- Added ExecutionPlan type and detectCycles() to scheduler with DFS cycle detection
+- Changed buildExecutionPlan return type from ExecutionBatch[] to ExecutionPlan
+- Created src/cli.ts (79 lines) — CLI with --file and --help flags, guarded main()
+- Added "bin" field to package.json for `cowork` command
+- Created .github/workflows/ci.yml for GitHub Actions CI
+- Added 9 fs-adapter tests, 6 cycle detection tests, 14 CLI tests
+- Fixed main() side-effect during testing with import.meta.url guard
+
+---
+
 ## Iteration 2 — Write unit tests for core utilities
 **Status:** PASSED
 **Task:** Write unit tests for core utilities

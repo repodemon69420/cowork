@@ -54,12 +54,13 @@ describe('Full pipeline integration', () => {
 
     // Step 2: Build execution plan (only pending tasks are scheduled)
     const plan = buildExecutionPlan(tasks);
-    expect(plan.length).toBeGreaterThan(0);
+    expect(plan.batches.length).toBeGreaterThan(0);
+    expect(plan.cycles).toEqual([]);
 
     // The first batch should contain "Setup database schema" since
     // "Initialize repository" is already completed and "Setup database schema"
     // has no unmet dependencies.
-    expect(plan[0].tasks[0].title).toBe('Setup database schema');
+    expect(plan.batches[0].tasks[0].title).toBe('Setup database schema');
 
     // Step 3: Simulate execution - mark all pending tasks as completed
     const completedTasks: Task[] = tasks
@@ -117,10 +118,10 @@ describe('Full pipeline integration', () => {
     const plan = buildExecutionPlan(tasks);
 
     // Three sequential batches because of the chain
-    expect(plan).toHaveLength(3);
-    expect(plan[0].tasks[0].title).toBe('Task A');
-    expect(plan[1].tasks[0].title).toBe('Task B');
-    expect(plan[2].tasks[0].title).toBe('Task C');
+    expect(plan.batches).toHaveLength(3);
+    expect(plan.batches[0].tasks[0].title).toBe('Task A');
+    expect(plan.batches[1].tasks[0].title).toBe('Task B');
+    expect(plan.batches[2].tasks[0].title).toBe('Task C');
   });
 });
 
@@ -162,11 +163,11 @@ describe('Real TASKS.md from this project', () => {
     const tasks = parseTasksFile(content);
     const plan = buildExecutionPlan(tasks);
 
-    // The plan should be an array (possibly empty if all tasks are completed)
-    expect(Array.isArray(plan)).toBe(true);
+    // The plan should have a batches array (possibly empty if all tasks are completed)
+    expect(Array.isArray(plan.batches)).toBe(true);
 
     // Each batch should have tasks and a parallel flag
-    for (const batch of plan) {
+    for (const batch of plan.batches) {
       expect(batch.tasks.length).toBeGreaterThan(0);
       expect(typeof batch.parallel).toBe('boolean');
     }
@@ -192,7 +193,7 @@ describe('Edge cases pipeline', () => {
 
     // No pending tasks, so execution plan should be empty
     const plan = buildExecutionPlan(tasks);
-    expect(plan).toHaveLength(0);
+    expect(plan.batches).toHaveLength(0);
 
     // Generate report with all tasks completed
     const result: SessionResult = {
@@ -230,7 +231,7 @@ describe('Edge cases pipeline', () => {
 
     // Build plan - no pending tasks
     const plan = buildExecutionPlan(tasks);
-    expect(plan).toHaveLength(0);
+    expect(plan.batches).toHaveLength(0);
 
     // Generate report with all failures
     const result: SessionResult = {
@@ -266,16 +267,17 @@ describe('Edge cases pipeline', () => {
     expect(tasks).toHaveLength(2);
 
     const plan = buildExecutionPlan(tasks);
-    expect(plan.length).toBeGreaterThan(0);
+    expect(plan.batches.length).toBeGreaterThan(0);
 
     // The independent task should be scheduled first since the orphan task
     // depends on a non-existent task (unmet dependency)
-    expect(plan[0].tasks.some(t => t.title === 'Independent task')).toBe(true);
+    expect(plan.batches[0].tasks.some(t => t.title === 'Independent task')).toBe(true);
 
-    // The orphan task will eventually be placed in a batch (as "remaining" when
-    // no more ready tasks exist, since "Non-existent task" never gets completed)
-    const allPlannedTitles = plan.flatMap(b => b.tasks.map(t => t.title));
-    expect(allPlannedTitles).toContain('Orphan task');
+    // The orphan task has an unmet dependency on a non-existent task,
+    // so it won't be scheduled in batches. It will be left as unschedulable
+    // with no cycles (since it's not in a cycle, just has a missing dependency).
+    const allPlannedTitles = plan.batches.flatMap(b => b.tasks.map(t => t.title));
+    expect(allPlannedTitles).not.toContain('Orphan task');
   });
 
   it('very long task title and context cause no truncation or errors', () => {
@@ -296,8 +298,8 @@ describe('Edge cases pipeline', () => {
 
     // Build plan
     const plan = buildExecutionPlan(tasks);
-    expect(plan).toHaveLength(1);
-    expect(plan[0].tasks[0].title).toBe(longTitle);
+    expect(plan.batches).toHaveLength(1);
+    expect(plan.batches[0].tasks[0].title).toBe(longTitle);
 
     // Generate report
     const result: SessionResult = {
@@ -343,7 +345,7 @@ describe('Edge cases pipeline', () => {
 
     // Build plan and generate report with unicode content
     const plan = buildExecutionPlan(tasks);
-    expect(plan.length).toBeGreaterThan(0);
+    expect(plan.batches.length).toBeGreaterThan(0);
 
     const result: SessionResult = {
       completed: tasks.map(t => ({ ...t, status: 'completed' as const })),
@@ -429,8 +431,8 @@ describe('Re-export verification', () => {
       { title: 'A', priority: 'high', type: 'code', context: '', status: 'pending' },
     ];
     const plan = build(tasks);
-    expect(plan).toHaveLength(1);
-    expect(plan[0].tasks[0].title).toBe('A');
+    expect(plan.batches).toHaveLength(1);
+    expect(plan.batches[0].tasks[0].title).toBe('A');
   });
 
   it('generateReport from index works correctly', async () => {

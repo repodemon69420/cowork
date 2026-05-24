@@ -18,6 +18,11 @@ export interface ExecutionBatch {
   parallel: boolean;
 }
 
+export interface ExecutionPlan {
+  batches: ExecutionBatch[];
+  cycles: string[][];
+}
+
 export interface SessionResult {
   completed: Task[];
   failed: Task[];
