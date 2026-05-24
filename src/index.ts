@@ -5,3 +5,6 @@ export { generateReport, formatTaskSection } from './reporter.js';
 export { readFileContent, writeFileContent, fileExists } from './fs-adapter.js';
 export { serializeTasksFile } from './serializer.js';
 export { CoworkConfig, RepoConfig, OrchestratorConfig, PhoneConfig, parseConfig, readConfig } from './config.js';
+export { validateTasks, ValidationResult, ValidationIssue } from './validator.js';
+export { getCurrentBranch, getLatestCommitHash, getCommitsSince, hasStagedChanges, hasUncommittedChanges } from './git-adapter.js';
+export { SessionState, TaskResult, SessionContext, createSession, transitionTo } from './session.js';

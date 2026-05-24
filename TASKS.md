@@ -86,3 +86,32 @@
 **Depends on:** Add task serializer module
 
 ---
+
+## [x] Add task validator module
+**Priority:** high
+**Type:** code
+**Context:** Create src/validator.ts with a validateTasks(tasks: Task[]) function that checks for: (1) duplicate task titles, (2) dependencies referencing non-existent tasks, (3) self-referencing dependencies. Return a ValidationResult with errors and warnings arrays. This is needed by the orchestrator to catch issues before spawning workers.
+
+---
+
+## [x] Add git adapter module
+**Priority:** high
+**Type:** code
+**Context:** Create src/git-adapter.ts wrapping common git operations needed by the orchestrator: getCurrentBranch(), getLatestCommitHash(), getCommitsSince(ref: string), hasStagedChanges(), hasUncommittedChanges(). Use child_process.execSync to call git CLI commands. Each function returns typed results. Add proper error handling for when git is not available or not in a repo.
+
+---
+
+## [x] Add session state types and runner scaffold
+**Priority:** medium
+**Type:** code
+**Context:** Create src/session.ts defining the orchestration state machine. Types: SessionState (idle, syncing, ideating, planning, building, testing, reviewing, merging, reporting), SessionContext (current iteration, branch, tasks, results), and SessionEvent (tick, taskComplete, testResult, reviewVerdict). Include a createSession(config: CoworkConfig) factory that returns an initial SessionContext. This is the foundation for the runner — just types and factory for now, no execution logic.
+**Depends on:** Add config reader module
+
+---
+
+## [x] Add end-to-end CLI pipeline test
+**Priority:** medium
+**Type:** test
+**Context:** Add a comprehensive integration test in src/integration.test.ts that tests the full write-parse-schedule-format pipeline: create a temp TASKS.md with various tasks (pending, completed, dependencies, cycles), run the CLI's formatPlan on it, verify output. Also test the mark-done round-trip: write file, mark a task done, re-read and verify status changed.
+
+---

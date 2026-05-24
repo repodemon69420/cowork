@@ -1,11 +1,14 @@
-import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { resolve, dirname, join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 import { parseTasksFile } from './parser.js';
 import { buildExecutionPlan } from './scheduler.js';
 import { generateReport } from './reporter.js';
+import { formatPlan, main } from './cli.js';
+import { serializeTasksFile } from './serializer.js';
 import type { Task, SessionResult } from './types.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -463,5 +466,189 @@ describe('Re-export verification', () => {
     expect(output).toContain('- **type**: docs');
     expect(output).toContain('- **priority**: medium');
     expect(output).toContain('- **context**: Some context here.');
+  });
+});
+
+describe('CLI pipeline end-to-end', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'cli-pipeline-'));
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('full plan display', () => {
+    const content = `## [ ] Task A
+**Priority:** high
+**Type:** code
+**Context:** First independent task.
+
+---
+
+## [ ] Task B
+**Priority:** low
+**Type:** test
+**Context:** Second independent task.
+
+---
+
+## [x] Task C
+**Priority:** medium
+**Type:** docs
+**Context:** Already completed task.
+
+---
+
+## [ ] Task D
+**Priority:** medium
+**Type:** code
+**Context:** Depends on A.
+**Depends on:** Task A
+`;
+    const tmpFile = join(tmpDir, 'TASKS.md');
+    writeFileSync(tmpFile, content, 'utf-8');
+
+    const fileContent = readFileSync(tmpFile, 'utf-8');
+    const tasks = parseTasksFile(fileContent);
+    const plan = buildExecutionPlan(tasks);
+    const output = formatPlan(tasks, plan);
+
+    // Verify counts
+    expect(output).toContain('Total tasks: 4');
+    expect(output).toContain('Pending: 3');
+    expect(output).toContain('Completed: 1');
+    expect(output).toContain('Failed: 0');
+
+    // Verify batch info
+    expect(output).toContain('Batch 1');
+    expect(output).toContain('Task A');
+    expect(output).toContain('Task B');
+
+    // Task D depends on A so it should be in a later batch
+    expect(output).toContain('Batch 2');
+    expect(output).toContain('Task D');
+
+    // No cycles
+    expect(output).not.toContain('WARNING');
+  });
+
+  it('cycle detection in pipeline', () => {
+    const content = `## [ ] Task X
+**Priority:** high
+**Type:** code
+**Context:** Depends on Y.
+**Depends on:** Task Y
+
+---
+
+## [ ] Task Y
+**Priority:** high
+**Type:** code
+**Context:** Depends on X.
+**Depends on:** Task X
+`;
+    const tmpFile = join(tmpDir, 'TASKS.md');
+    writeFileSync(tmpFile, content, 'utf-8');
+
+    const fileContent = readFileSync(tmpFile, 'utf-8');
+    const tasks = parseTasksFile(fileContent);
+    const plan = buildExecutionPlan(tasks);
+    const output = formatPlan(tasks, plan);
+
+    expect(output).toContain('WARNING');
+    expect(output).toContain('Dependency cycles detected');
+  });
+
+  it('mark-done round-trip', () => {
+    const content = `## [ ] Deploy app
+**Priority:** high
+**Type:** code
+**Context:** Deploy to production.
+`;
+    const tmpFile = join(tmpDir, 'TASKS.md');
+    writeFileSync(tmpFile, content, 'utf-8');
+
+    const originalArgv = process.argv;
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+
+    try {
+      process.argv = ['node', 'cli.js', '--file', tmpFile, '--mark-done', 'Deploy app'];
+      main();
+
+      expect(logSpy).toHaveBeenCalledWith('Marked done: Deploy app');
+      expect(exitSpy).not.toHaveBeenCalled();
+
+      // Re-read and parse the file to verify the task is completed
+      const updatedContent = readFileSync(tmpFile, 'utf-8');
+      const updatedTasks = parseTasksFile(updatedContent);
+      expect(updatedTasks).toHaveLength(1);
+      expect(updatedTasks[0].title).toBe('Deploy app');
+      expect(updatedTasks[0].status).toBe('completed');
+    } finally {
+      process.argv = originalArgv;
+      vi.restoreAllMocks();
+    }
+  });
+
+  it('serialize-parse round-trip with complex tasks', () => {
+    const originalTasks: Task[] = [
+      {
+        title: 'Pending task',
+        priority: 'high',
+        type: 'code',
+        context: 'This is pending.',
+        status: 'pending',
+      },
+      {
+        title: 'Completed task',
+        priority: 'medium',
+        type: 'test',
+        context: 'This is done.',
+        status: 'completed',
+      },
+      {
+        title: 'Failed task',
+        priority: 'low',
+        type: 'docs',
+        context: 'This failed.',
+        status: 'failed',
+      },
+      {
+        title: 'Task with deps',
+        priority: 'high',
+        type: 'refactor',
+        context: 'Depends on others.',
+        status: 'pending',
+        dependsOn: ['Pending task', 'Completed task'],
+      },
+    ];
+
+    const serialized = serializeTasksFile(originalTasks);
+
+    const tmpFile = join(tmpDir, 'TASKS.md');
+    writeFileSync(tmpFile, serialized, 'utf-8');
+
+    const fileContent = readFileSync(tmpFile, 'utf-8');
+    const parsedTasks = parseTasksFile(fileContent);
+
+    expect(parsedTasks).toHaveLength(originalTasks.length);
+
+    for (let i = 0; i < originalTasks.length; i++) {
+      expect(parsedTasks[i].title).toBe(originalTasks[i].title);
+      expect(parsedTasks[i].priority).toBe(originalTasks[i].priority);
+      expect(parsedTasks[i].type).toBe(originalTasks[i].type);
+      expect(parsedTasks[i].context).toBe(originalTasks[i].context);
+      expect(parsedTasks[i].status).toBe(originalTasks[i].status);
+      if (originalTasks[i].dependsOn) {
+        expect(parsedTasks[i].dependsOn).toEqual(originalTasks[i].dependsOn);
+      } else {
+        expect(parsedTasks[i].dependsOn).toBeUndefined();
+      }
+    }
   });
 });

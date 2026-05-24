@@ -4,6 +4,23 @@
 
 ---
 
+## Iteration 5 — Validator, git adapter, session state, e2e tests
+**Status:** PASSED
+**Tasks:** Add task validator, Add git adapter, Add session state types, Add e2e CLI tests
+**Tests:** 149 pass, 0 fail (39 new tests added)
+**Coverage:** 97.40% statements overall
+**Quality Gate:** PASSED (all criteria met)
+
+**Changes:**
+- Created src/validator.ts (43 lines) — validateTasks with duplicate/dep/self-dep checks
+- Created src/git-adapter.ts (47 lines) — getCurrentBranch, getLatestCommitHash, getCommitsSince, hasStagedChanges, hasUncommittedChanges
+- Created src/session.ts (63 lines) — SessionState machine, SessionContext, createSession, transitionTo with validated transitions
+- Added 4 end-to-end pipeline tests to integration.test.ts (full plan, cycles, mark-done, serialize round-trip)
+- Fixed lint error (unused errorSpy variable)
+- Added error path tests for git-adapter to reach 80%+ coverage
+
+---
+
 ## Iteration 4 — Serializer, config reader, CLI mark-done, lint fix
 **Status:** PASSED
 **Tasks:** Fix lint error, Add task serializer, Add config reader, Add CLI mark-done command
