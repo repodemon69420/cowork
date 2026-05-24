@@ -137,3 +137,25 @@
 **Depends on:** Add session state types and runner scaffold
 
 ---
+
+## [x] Add --status flag to CLI
+**Priority:** high
+**Type:** code
+**Context:** Add a --status flag to src/cli.ts that shows a quick summary: pending/completed/failed task counts, current git branch (from git-adapter), latest commit hash, and whether there are uncommitted changes. Useful for checking overnight progress from a phone. Print as a compact summary block.
+
+---
+
+## [x] Add runner module with dry-run support
+**Priority:** high
+**Type:** code
+**Context:** Create src/runner.ts with a runSession(config: CoworkConfig, options: { dryRun: boolean }) function that orchestrates one full iteration. In dry-run mode, it reads TASKS.md, validates, plans, and prints what WOULD be executed — no git operations, no file writes. Uses the step handlers from steps.ts, logger from logger.ts, and parser/scheduler/validator. Returns a SessionContext with the final state. This is the main entry point the orchestrator will call.
+**Depends on:** Add session step handlers, Add logger module
+
+---
+
+## [x] Export detectCycles from index and add CLI cycle check
+**Priority:** medium
+**Type:** refactor
+**Context:** The detectCycles function in src/scheduler.ts is not exported from src/index.ts. Export it. Also add cycle information to the --validate output — when cycles are detected during validation, show them as errors. Update the validate tests to cover this case.
+
+---

@@ -4,6 +4,22 @@
 
 ---
 
+## Iteration 7 — CLI status, runner module, cycle detection export
+**Status:** PASSED
+**Tasks:** Add --status to CLI, Add runner with dry-run, Export detectCycles + enhance validate
+**Tests:** 185 pass, 0 fail (11 new tests added)
+**Coverage:** 98.18% statements overall
+**Quality Gate:** PASSED (all criteria met)
+
+**Changes:**
+- Added --status flag to CLI showing branch, commit, task counts
+- Created src/runner.ts (48 lines) — runIteration and runFromFile with dry-run support
+- Exported detectCycles from index.ts
+- Enhanced --validate with cycle detection reporting
+- 2 CLI status tests, 8 runner tests, 1 cycle validation test
+
+---
+
 ## Iteration 6 — CLI validate, logger, session step handlers
 **Status:** PASSED
 **Tasks:** Add --validate to CLI, Add logger module, Add session step handlers

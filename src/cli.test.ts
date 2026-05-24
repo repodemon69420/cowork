@@ -5,33 +5,39 @@ import { writeFileSync, readFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
+vi.mock('./git-adapter.js', () => ({
+  getCurrentBranch: () => 'main',
+  getLatestCommitHash: () => 'abc1234',
+  hasUncommittedChanges: () => false,
+}));
+
 describe('parseArgs', () => {
   it('returns defaults when no args given', () => {
-    expect(parseArgs([])).toEqual({ file: 'TASKS.md', help: false, validate: false, markDone: undefined });
+    expect(parseArgs([])).toEqual({ file: 'TASKS.md', help: false, validate: false, status: false, markDone: undefined });
   });
 
   it('parses --file flag', () => {
-    expect(parseArgs(['--file', 'custom.md'])).toEqual({ file: 'custom.md', help: false, validate: false, markDone: undefined });
+    expect(parseArgs(['--file', 'custom.md'])).toEqual({ file: 'custom.md', help: false, validate: false, status: false, markDone: undefined });
   });
 
   it('parses --help flag', () => {
-    expect(parseArgs(['--help'])).toEqual({ file: 'TASKS.md', help: true, validate: false, markDone: undefined });
+    expect(parseArgs(['--help'])).toEqual({ file: 'TASKS.md', help: true, validate: false, status: false, markDone: undefined });
   });
 
   it('parses -h shorthand', () => {
-    expect(parseArgs(['-h'])).toEqual({ file: 'TASKS.md', help: true, validate: false, markDone: undefined });
+    expect(parseArgs(['-h'])).toEqual({ file: 'TASKS.md', help: true, validate: false, status: false, markDone: undefined });
   });
 
   it('parses --file and --help together', () => {
-    expect(parseArgs(['--file', 'other.md', '--help'])).toEqual({ file: 'other.md', help: true, validate: false, markDone: undefined });
+    expect(parseArgs(['--file', 'other.md', '--help'])).toEqual({ file: 'other.md', help: true, validate: false, status: false, markDone: undefined });
   });
 
   it('ignores --file when no value follows', () => {
-    expect(parseArgs(['--file'])).toEqual({ file: 'TASKS.md', help: false, validate: false, markDone: undefined });
+    expect(parseArgs(['--file'])).toEqual({ file: 'TASKS.md', help: false, validate: false, status: false, markDone: undefined });
   });
 
   it('parses --mark-done flag', () => {
-    expect(parseArgs(['--mark-done', 'My Task'])).toEqual({ file: 'TASKS.md', help: false, validate: false, markDone: 'My Task' });
+    expect(parseArgs(['--mark-done', 'My Task'])).toEqual({ file: 'TASKS.md', help: false, validate: false, status: false, markDone: 'My Task' });
   });
 
   it('parses --mark-done with --file together', () => {
@@ -39,12 +45,17 @@ describe('parseArgs', () => {
       file: 'todo.md',
       help: false,
       validate: false,
+      status: false,
       markDone: 'Fix bug',
     });
   });
 
   it('parses --validate flag', () => {
-    expect(parseArgs(['--validate'])).toEqual({ file: 'TASKS.md', help: false, validate: true, markDone: undefined });
+    expect(parseArgs(['--validate'])).toEqual({ file: 'TASKS.md', help: false, validate: true, status: false, markDone: undefined });
+  });
+
+  it('parses --status flag', () => {
+    expect(parseArgs(['--status'])).toEqual({ file: 'TASKS.md', help: false, validate: false, status: true, markDone: undefined });
   });
 });
 
@@ -148,6 +159,17 @@ describe('main', () => {
     main();
     expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Error:'));
     expect(exitSpy).toHaveBeenCalledWith(1);
+  });
+
+  it('prints status block with --status', () => {
+    process.argv = ['node', 'cli.js', '--file', 'TASKS.md', '--status'];
+    main();
+    expect(logSpy).toHaveBeenCalledWith('Cowork Status');
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Branch:'));
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Last commit:'));
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Uncommitted changes:'));
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Tasks:'));
+    expect(exitSpy).toHaveBeenCalledWith(0);
   });
 
   describe('--mark-done', () => {
@@ -274,6 +296,39 @@ describe('main', () => {
       main();
       expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('ERROR:'));
       expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Validation: FAIL'));
+      expect(exitSpy).toHaveBeenCalledWith(1);
+    });
+
+    it('prints FAIL and exits 1 for cyclic dependencies', () => {
+      const CYCLIC_TASKS = [
+        '# Status: ON',
+        '',
+        '# Tasks',
+        '',
+        '---',
+        '',
+        '## [ ] Task A',
+        '**Priority:** high',
+        '**Type:** code',
+        '**Context:** first task',
+        '**Depends on:** Task B',
+        '',
+        '---',
+        '',
+        '## [ ] Task B',
+        '**Priority:** high',
+        '**Type:** code',
+        '**Context:** second task',
+        '**Depends on:** Task A',
+        '',
+        '---',
+      ].join('\n');
+      const tmpFile = join(tmpDir, 'tasks.md');
+      writeFileSync(tmpFile, CYCLIC_TASKS, 'utf-8');
+      process.argv = ['node', 'cli.js', '--file', tmpFile, '--validate'];
+      main();
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('cycle'));
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('FAIL'));
       expect(exitSpy).toHaveBeenCalledWith(1);
     });
   });
