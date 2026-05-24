@@ -4,6 +4,21 @@
 
 ---
 
+## Iteration 6 — CLI validate, logger, session step handlers
+**Status:** PASSED
+**Tasks:** Add --validate to CLI, Add logger module, Add session step handlers
+**Tests:** 174 pass, 0 fail (25 new tests added)
+**Coverage:** 97.06% statements overall
+**Quality Gate:** PASSED (all criteria met)
+
+**Changes:**
+- Added --validate flag to CLI with error/warning output and exit codes
+- Created src/logger.ts (23 lines) — Logger class with buffer, flush, console output
+- Created src/steps.ts (53 lines) — 7 pure step handler functions for session state machine
+- 3 CLI validate tests, 8 logger tests, 14 step handler tests
+
+---
+
 ## Iteration 5 — Validator, git adapter, session state, e2e tests
 **Status:** PASSED
 **Tasks:** Add task validator, Add git adapter, Add session state types, Add e2e CLI tests

@@ -115,3 +115,25 @@
 **Context:** Add a comprehensive integration test in src/integration.test.ts that tests the full write-parse-schedule-format pipeline: create a temp TASKS.md with various tasks (pending, completed, dependencies, cycles), run the CLI's formatPlan on it, verify output. Also test the mark-done round-trip: write file, mark a task done, re-read and verify status changed.
 
 ---
+
+## [x] Add --validate flag to CLI
+**Priority:** high
+**Type:** code
+**Context:** Add a --validate flag to src/cli.ts that reads TASKS.md, parses tasks, runs validateTasks from validator.ts, and prints the results. Show errors in red (prefix ERROR:), warnings in yellow (prefix WARNING:), and a final "Valid" or "Invalid" verdict. Exit 1 if there are errors, 0 otherwise. Import validateTasks. Add the flag to parseArgs and USAGE string. Add tests for the new flag.
+
+---
+
+## [x] Add logger module
+**Priority:** medium
+**Type:** code
+**Context:** Create src/logger.ts with a simple Logger class. Methods: info(msg), warn(msg), error(msg). Each prepends a timestamp and level. The logger writes to an internal buffer (string[]) that can be retrieved with getLog(). Also provide a flush(filePath) method that writes the buffer to a file using writeFileContent. Keep it simple — no external dependencies. This will be used by the session runner for structured logging.
+
+---
+
+## [x] Add session step handlers
+**Priority:** medium
+**Type:** code
+**Context:** Create src/steps.ts with pure functions for each session step. These take SessionContext and return a new SessionContext (immutability). Functions: stepSync(ctx) — transitions to syncing then planning, stepPlan(ctx, tasks) — builds execution plan and stores it, stepReport(ctx) — transitions to reporting. Each function validates state and throws if called in wrong state. This is the foundation for the session runner loop — just state transitions and data flow, no side effects.
+**Depends on:** Add session state types and runner scaffold
+
+---

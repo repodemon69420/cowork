@@ -8,3 +8,5 @@ export { CoworkConfig, RepoConfig, OrchestratorConfig, PhoneConfig, parseConfig,
 export { validateTasks, ValidationResult, ValidationIssue } from './validator.js';
 export { getCurrentBranch, getLatestCommitHash, getCommitsSince, hasStagedChanges, hasUncommittedChanges } from './git-adapter.js';
 export { SessionState, TaskResult, SessionContext, createSession, transitionTo } from './session.js';
+export { stepSync, stepPlan, stepBuildComplete, stepTestComplete, stepReviewComplete, stepMerge, stepReport } from './steps.js';
+export { Logger, createLogger } from './logger.js';

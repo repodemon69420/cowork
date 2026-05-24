@@ -7,39 +7,44 @@ import { tmpdir } from 'node:os';
 
 describe('parseArgs', () => {
   it('returns defaults when no args given', () => {
-    expect(parseArgs([])).toEqual({ file: 'TASKS.md', help: false, markDone: undefined });
+    expect(parseArgs([])).toEqual({ file: 'TASKS.md', help: false, validate: false, markDone: undefined });
   });
 
   it('parses --file flag', () => {
-    expect(parseArgs(['--file', 'custom.md'])).toEqual({ file: 'custom.md', help: false, markDone: undefined });
+    expect(parseArgs(['--file', 'custom.md'])).toEqual({ file: 'custom.md', help: false, validate: false, markDone: undefined });
   });
 
   it('parses --help flag', () => {
-    expect(parseArgs(['--help'])).toEqual({ file: 'TASKS.md', help: true, markDone: undefined });
+    expect(parseArgs(['--help'])).toEqual({ file: 'TASKS.md', help: true, validate: false, markDone: undefined });
   });
 
   it('parses -h shorthand', () => {
-    expect(parseArgs(['-h'])).toEqual({ file: 'TASKS.md', help: true, markDone: undefined });
+    expect(parseArgs(['-h'])).toEqual({ file: 'TASKS.md', help: true, validate: false, markDone: undefined });
   });
 
   it('parses --file and --help together', () => {
-    expect(parseArgs(['--file', 'other.md', '--help'])).toEqual({ file: 'other.md', help: true, markDone: undefined });
+    expect(parseArgs(['--file', 'other.md', '--help'])).toEqual({ file: 'other.md', help: true, validate: false, markDone: undefined });
   });
 
   it('ignores --file when no value follows', () => {
-    expect(parseArgs(['--file'])).toEqual({ file: 'TASKS.md', help: false, markDone: undefined });
+    expect(parseArgs(['--file'])).toEqual({ file: 'TASKS.md', help: false, validate: false, markDone: undefined });
   });
 
   it('parses --mark-done flag', () => {
-    expect(parseArgs(['--mark-done', 'My Task'])).toEqual({ file: 'TASKS.md', help: false, markDone: 'My Task' });
+    expect(parseArgs(['--mark-done', 'My Task'])).toEqual({ file: 'TASKS.md', help: false, validate: false, markDone: 'My Task' });
   });
 
   it('parses --mark-done with --file together', () => {
     expect(parseArgs(['--file', 'todo.md', '--mark-done', 'Fix bug'])).toEqual({
       file: 'todo.md',
       help: false,
+      validate: false,
       markDone: 'Fix bug',
     });
+  });
+
+  it('parses --validate flag', () => {
+    expect(parseArgs(['--validate'])).toEqual({ file: 'TASKS.md', help: false, validate: true, markDone: undefined });
   });
 });
 
@@ -201,6 +206,74 @@ describe('main', () => {
       process.argv = ['node', 'cli.js', '--file', tmpFile, '--mark-done', 'Setup CI'];
       main();
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('already completed'));
+      expect(exitSpy).toHaveBeenCalledWith(1);
+    });
+  });
+
+  describe('--validate', () => {
+    let tmpDir: string;
+
+    const VALID_TASKS = [
+      '# Status: ON',
+      '',
+      '# Tasks',
+      '',
+      '---',
+      '',
+      '## [ ] Build feature',
+      '**Priority:** high',
+      '**Type:** code',
+      '**Context:** implement it',
+      '',
+      '---',
+    ].join('\n');
+
+    const DUPLICATE_TASKS = [
+      '# Status: ON',
+      '',
+      '# Tasks',
+      '',
+      '---',
+      '',
+      '## [ ] Build feature',
+      '**Priority:** high',
+      '**Type:** code',
+      '**Context:** implement it',
+      '',
+      '---',
+      '',
+      '## [ ] Build feature',
+      '**Priority:** medium',
+      '**Type:** code',
+      '**Context:** duplicate',
+      '',
+      '---',
+    ].join('\n');
+
+    beforeEach(() => {
+      tmpDir = mkdtempSync(join(tmpdir(), 'cli-validate-'));
+    });
+
+    afterEach(() => {
+      rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('prints PASS for a valid tasks file', () => {
+      const tmpFile = join(tmpDir, 'tasks.md');
+      writeFileSync(tmpFile, VALID_TASKS, 'utf-8');
+      process.argv = ['node', 'cli.js', '--file', tmpFile, '--validate'];
+      main();
+      expect(logSpy).toHaveBeenCalledWith('Validation: PASS');
+      expect(exitSpy).not.toHaveBeenCalled();
+    });
+
+    it('prints FAIL and exits 1 for duplicate tasks', () => {
+      const tmpFile = join(tmpDir, 'tasks.md');
+      writeFileSync(tmpFile, DUPLICATE_TASKS, 'utf-8');
+      process.argv = ['node', 'cli.js', '--file', tmpFile, '--validate'];
+      main();
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('ERROR:'));
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Validation: FAIL'));
       expect(exitSpy).toHaveBeenCalledWith(1);
     });
   });
