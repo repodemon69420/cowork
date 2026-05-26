@@ -3,7 +3,7 @@ import { buildExecutionPlan } from './scheduler.js';
 import { generateReport } from './reporter.js';
 import { readFile, writeFile } from './io.js';
 import { validateTasks, detectCycles } from './validator.js';
-import type { SessionResult } from './types.js';
+import type { SessionResult, ExecutionBatch, Task } from './types.js';
 
 export interface CliOptions {
   tasksPath: string;
@@ -63,6 +63,46 @@ Options:
   process.stdout.write(usage);
 }
 
+function runValidation(tasks: Task[]): void {
+  const result = validateTasks(tasks);
+  const cycles = detectCycles(tasks);
+
+  if (result.valid && cycles.length === 0) {
+    process.stdout.write(`Validation passed: ${tasks.length} tasks, no errors found.\n`);
+    return;
+  }
+
+  if (result.errors.length > 0) {
+    process.stderr.write('Validation errors:\n');
+    for (const err of result.errors) {
+      process.stderr.write(`  - [${err.task || '(untitled)'}] ${err.field}: ${err.message}\n`);
+    }
+  }
+
+  if (cycles.length > 0) {
+    process.stderr.write('Circular dependencies detected:\n');
+    for (const cycle of cycles) {
+      process.stderr.write(`  - ${cycle.join(' -> ')}\n`);
+    }
+  }
+
+  process.exit(1);
+}
+
+function printExecutionPlan(batches: ExecutionBatch[]): void {
+  process.stdout.write('Execution Plan\n');
+  process.stdout.write('==============\n\n');
+  for (let i = 0; i < batches.length; i++) {
+    const batch = batches[i];
+    const mode = batch.parallel ? 'parallel' : 'sequential';
+    process.stdout.write(`Batch ${i + 1} (${mode}):\n`);
+    for (const task of batch.tasks) {
+      process.stdout.write(`  - [${task.priority}] ${task.title}\n`);
+    }
+    process.stdout.write('\n');
+  }
+}
+
 export async function run(options: CliOptions): Promise<void> {
   if (options.help) {
     printUsage();
@@ -80,67 +120,21 @@ export async function run(options: CliOptions): Promise<void> {
 
   const tasks = parseTasksFile(content);
 
-  if (options.validate) {
-    const result = validateTasks(tasks);
-    const cycles = detectCycles(tasks);
-
-    if (result.valid && cycles.length === 0) {
-      process.stdout.write(`Validation passed: ${tasks.length} tasks, no errors found.\n`);
-      return;
-    }
-
-    if (result.errors.length > 0) {
-      process.stderr.write('Validation errors:\n');
-      for (const err of result.errors) {
-        process.stderr.write(`  - [${err.task || '(untitled)'}] ${err.field}: ${err.message}\n`);
-      }
-    }
-
-    if (cycles.length > 0) {
-      process.stderr.write('Circular dependencies detected:\n');
-      for (const cycle of cycles) {
-        process.stderr.write(`  - ${cycle.join(' -> ')}\n`);
-      }
-    }
-
-    process.exit(1);
-  }
+  if (options.validate) { runValidation(tasks); return; }
 
   const batches = buildExecutionPlan(tasks);
 
-  if (options.dryRun) {
-    process.stdout.write('Execution Plan\n');
-    process.stdout.write('==============\n\n');
-    for (let i = 0; i < batches.length; i++) {
-      const batch = batches[i];
-      const mode = batch.parallel ? 'parallel' : 'sequential';
-      process.stdout.write(`Batch ${i + 1} (${mode}):\n`);
-      for (const task of batch.tasks) {
-        process.stdout.write(`  - [${task.priority}] ${task.title}\n`);
-      }
-      process.stdout.write('\n');
-    }
-    return;
-  }
+  if (options.dryRun) { printExecutionPlan(batches); return; }
 
   const startTime = new Date();
-  const pending = tasks.filter(t => t.status === 'pending');
   const completed = tasks.filter(t => t.status === 'completed');
   const failed = tasks.filter(t => t.status === 'failed');
-  const skipped = pending;
+  const skipped = tasks.filter(t => t.status === 'pending');
   const endTime = new Date();
 
-  const sessionResult: SessionResult = {
-    completed,
-    failed,
-    skipped,
-    startTime,
-    endTime,
-  };
-
+  const sessionResult: SessionResult = { completed, failed, skipped, startTime, endTime };
   const report = generateReport(sessionResult, []);
   await writeFile(options.outputPath, report);
-
   process.stdout.write(`Report written to ${options.outputPath}\n`);
 }
 
