@@ -39,6 +39,7 @@ function makeOptions(overrides: Partial<CliOptions> = {}): CliOptions {
     dryRun: false,
     validate: false,
     help: false,
+    quiet: false,
     ...overrides,
   };
 }
