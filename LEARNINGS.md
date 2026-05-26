@@ -12,6 +12,9 @@
 4. **Function length enforcement matters**: The `run` function naturally grew to 79 lines as features accumulated. Extract helpers proactively — validation, display, and core logic are natural split points.
 5. **Round-trip testing**: Testing `parseTasksFile(serializeTasks(tasks))` catches subtle serialization bugs that unit tests miss. Always test codec pairs with round-trips.
 6. **Type annotation on mock functions**: Avoid explicit return type annotations on `vi.spyOn` wrappers — TypeScript infers complex generic types that are hard to satisfy. Let inference handle it.
+7. **TaskRunner abstraction**: Using a function type `(task: Task) => Promise<TaskStatus>` as a strategy pattern lets the executor be tested with simple stubs while supporting real agent execution later.
+8. **tsconfig.build.json**: Always create a separate build config that excludes test files — the default tsconfig.json should include tests for IDE support but production builds should be clean.
+9. **Build verification tests**: A test that runs `tsc --noEmit` via child_process catches import/export issues that IDE type-checking might miss, especially around ESM module resolution.
 
 ---
 

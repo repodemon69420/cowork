@@ -4,6 +4,23 @@
 
 ---
 
+## Iteration 4 — Executor, Build Config, ESLint, CLI Wiring, Progress Output
+**Status:** PASSED
+**Tasks:** 5 completed (3 parallel batch + 2 sequential)
+**Tests:** 144 pass, 0 fail (20 new tests added)
+**Coverage:** 95.6% statements overall, all source files >= 80%
+**Quality Gate:** PASSED (all criteria met)
+
+**Changes:**
+- Created src/executor.ts — executeTask, executeBatch, executePlan with TaskRunner abstraction (13 tests)
+- Created tsconfig.build.json — excludes test files from production build (2 tests)
+- Fixed all ESLint issues (unused imports removed)
+- Wired executor into CLI — normal mode now executes tasks and updates TASKS.md
+- Added --quiet flag and batch-level progress output with [DONE]/[FAIL]/[SKIP] markers
+- Added formatSummary for elapsed time and task count display
+
+---
+
 ## Iteration 3 — File I/O, Task Serializer, Validator, CLI, Integration Tests
 **Status:** PASSED
 **Tasks:** 5 completed (3 parallel batch + 1 sequential + 1 sequential)

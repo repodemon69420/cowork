@@ -58,3 +58,40 @@
 **Depends on:** Create CLI entry point
 
 ---
+
+## [x] Create task executor module
+**Priority:** high
+**Type:** code
+**Context:** Create src/executor.ts that actually executes the plan from buildExecutionPlan. Functions: (1) executeTask(task: Task, onComplete: (task: Task, status: TaskStatus) => void) → Promise<Task> that simulates executing a single task (updates its status to completed, calls the callback), (2) executeBatch(batch: ExecutionBatch, onComplete) → Promise<Task[]> that runs tasks in a batch — if batch.parallel is true, use Promise.all; if false, run sequentially, (3) executePlan(batches: ExecutionBatch[], onProgress?: (completed: number, total: number) => void) → Promise<SessionResult> that runs all batches in order, collects results into a SessionResult. The executor is the bridge between the scheduler's plan and the reporter's results. Write tests in src/executor.test.ts.
+
+---
+
+## [x] Add TypeScript build and verify CLI executable
+**Priority:** high
+**Type:** code
+**Context:** Ensure `npm run build` produces working output in dist/. Add a "prepublishOnly" script that runs build. Verify the built CLI is executable by running `node dist/cli.js --help` after build. Add dist/ to .gitignore if not already there. Fix any build issues (e.g., test files should be excluded from build via tsconfig). Create a separate tsconfig.build.json that excludes test files from compilation. Write a simple build verification test in src/build.test.ts that checks the TypeScript compiler runs without errors (use child_process to run tsc).
+
+---
+
+## [x] Add ESLint integration and fix lint issues
+**Priority:** medium
+**Type:** refactor
+**Context:** Run `npx eslint src/` and fix all reported issues. The ESLint config exists (eslint.config.js) but has never been run against the full codebase. Common issues will likely include: unused imports, prefer-const, any types, etc. After fixing all issues, add a "prelint" check that it actually works. Do NOT change the ESLint config unless absolutely necessary — fix the code to match the existing rules. Write the results of the lint run to show zero errors.
+
+---
+
+## [x] Wire executor into CLI for full pipeline
+**Priority:** high
+**Type:** code
+**Context:** Update src/cli.ts to use the executor module when running in normal mode (not --dry-run, not --validate). The flow should be: read tasks → parse → validate → schedule → execute plan → update task statuses in TASKS.md → generate report → write report. Currently the CLI generates a static report without actually executing. After this change, running `cowork --tasks TASKS.md` should: (1) execute each batch, (2) update TASKS.md to mark completed tasks as [x], (3) write a report showing what was done. Update cli.test.ts and cli-integration.test.ts with tests for the new execution path.
+**Depends on:** Create task executor module
+
+---
+
+## [x] Add progress output and summary statistics
+**Priority:** low
+**Type:** code
+**Context:** Add real-time progress output to the CLI when running in normal mode. Show: "Executing batch 1/N (parallel)..." then "  [DONE] Task title" as each task completes. After all batches complete, show a summary: tasks completed, failed, skipped, total time. Use the onProgress callback from the executor. Add a --quiet flag that suppresses progress output. Write tests that capture stdout and verify the progress messages appear. This makes the CLI actually useful to watch while running.
+**Depends on:** Wire executor into CLI for full pipeline
+
+---

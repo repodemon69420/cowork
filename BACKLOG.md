@@ -51,3 +51,40 @@
 **Depends on:** Create CLI entry point
 
 ---
+
+## [x] Create task executor module
+**Priority:** high
+**Type:** code
+**Context:** src/executor.ts — executeTask, executeBatch, executePlan. Bridge between scheduler and reporter.
+
+---
+
+## [x] Add TypeScript build and verify CLI executable
+**Priority:** high
+**Type:** code
+**Context:** Ensure npm run build works, add tsconfig.build.json, verify CLI executable.
+
+---
+
+## [x] Add ESLint integration and fix lint issues
+**Priority:** medium
+**Type:** refactor
+**Context:** Run eslint on full codebase, fix all issues.
+
+---
+
+## [x] Wire executor into CLI for full pipeline
+**Priority:** high
+**Type:** code
+**Context:** Update CLI to use executor for real task execution, update TASKS.md on completion.
+**Depends on:** Create task executor module
+
+---
+
+## [x] Add progress output and summary statistics
+**Priority:** low
+**Type:** code
+**Context:** Real-time progress output, --quiet flag, summary statistics.
+**Depends on:** Wire executor into CLI for full pipeline
+
+---
