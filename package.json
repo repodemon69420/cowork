@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "Overnight Claude Code agent workflow framework",
   "type": "module",
+  "bin": {
+    "cowork": "./dist/cli.js"
+  },
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
