@@ -129,9 +129,16 @@ describe('CLI integration tests', () => {
     expect(report).toContain('# Overnight Session Report');
     expect(report).toContain('**Duration**');
     expect(report).toContain('**Tasks**');
-    // Both tasks are pending so they appear in Skipped section
+    // Both tasks should now be completed (executor runs them)
     expect(report).toContain('Implement auth');
     expect(report).toContain('Add rate limiting');
+
+    // Verify TASKS.md was updated with completed statuses
+    const updatedTasks = await fsReadFile(tasksPath, 'utf-8');
+    expect(updatedTasks).toContain('[x] Implement auth');
+    expect(updatedTasks).toContain('[x] Add rate limiting');
+    expect(updatedTasks).not.toContain('[ ] Implement auth');
+    expect(updatedTasks).not.toContain('[ ] Add rate limiting');
   });
 
   it('validate mode — valid tasks pass', async () => {
@@ -311,6 +318,15 @@ describe('CLI integration tests', () => {
     expect(report).toContain('Design database schema');
     expect(report).toContain('Implement ORM models');
     expect(report).toContain('Write migration scripts');
+
+    // Step 5: verify TASKS.md was updated — all tasks marked completed
+    const updatedTasks = await fsReadFile(tasksPath, 'utf-8');
+    expect(updatedTasks).toContain('[x] Design database schema');
+    expect(updatedTasks).toContain('[x] Implement ORM models');
+    expect(updatedTasks).toContain('[x] Write migration scripts');
+    expect(updatedTasks).not.toContain('[ ] Design database schema');
+    expect(updatedTasks).not.toContain('[ ] Implement ORM models');
+    expect(updatedTasks).not.toContain('[ ] Write migration scripts');
   });
 
   it('mixed completed and pending tasks — dry-run shows only pending', async () => {

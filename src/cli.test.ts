@@ -186,6 +186,17 @@ describe('run', () => {
 
     const reportContent = await fsReadFile(outputPath, 'utf-8');
     expect(reportContent).toContain('Overnight Session Report');
+
+    // Verify TASKS.md was updated with completed statuses
+    const updatedTasks = await fsReadFile(tasksPath, 'utf-8');
+    expect(updatedTasks).toContain('[x] Set up database');
+    expect(updatedTasks).toContain('[x] Write API docs');
+    expect(updatedTasks).not.toContain('[ ] Set up database');
+    expect(updatedTasks).not.toContain('[ ] Write API docs');
+
+    // Verify progress messages were printed
+    expect(stdoutOutput).toContain('Progress:');
+    expect(stdoutOutput).toMatch(/Progress: \d+\/\d+ tasks/);
   });
 
   it('handles missing tasks file with error message', async () => {

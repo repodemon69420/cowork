@@ -3,7 +3,10 @@ import { buildExecutionPlan } from './scheduler.js';
 import { generateReport } from './reporter.js';
 import { readFile, writeFile } from './io.js';
 import { validateTasks, detectCycles } from './validator.js';
-import type { SessionResult, ExecutionBatch, Task } from './types.js';
+import { executePlan } from './executor.js';
+import { updateTaskStatus } from './writer.js';
+import type { TaskRunner } from './executor.js';
+import type { ExecutionBatch, Task } from './types.js';
 
 export interface CliOptions {
   tasksPath: string;
@@ -126,13 +129,25 @@ export async function run(options: CliOptions): Promise<void> {
 
   if (options.dryRun) { printExecutionPlan(batches); return; }
 
-  const startTime = new Date();
-  const completed = tasks.filter(t => t.status === 'completed');
-  const failed = tasks.filter(t => t.status === 'failed');
-  const skipped = tasks.filter(t => t.status === 'pending');
-  const endTime = new Date();
+  // Default runner: marks tasks as completed immediately
+  // (In a real system, this would spawn agents or run commands)
+  const defaultRunner: TaskRunner = async () => 'completed';
 
-  const sessionResult: SessionResult = { completed, failed, skipped, startTime, endTime };
+  const sessionResult = await executePlan(batches, defaultRunner, (completed, total) => {
+    process.stdout.write(`Progress: ${completed}/${total} tasks\n`);
+  });
+
+  // Update TASKS.md with new statuses
+  let updatedContent = content;
+  for (const task of sessionResult.completed) {
+    updatedContent = updateTaskStatus(updatedContent, task.title, 'completed');
+  }
+  for (const task of sessionResult.failed) {
+    updatedContent = updateTaskStatus(updatedContent, task.title, 'failed');
+  }
+  await writeFile(options.tasksPath, updatedContent);
+
+  // Generate and write the report
   const report = generateReport(sessionResult, []);
   await writeFile(options.outputPath, report);
   process.stdout.write(`Report written to ${options.outputPath}\n`);
