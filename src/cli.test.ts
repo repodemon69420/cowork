@@ -98,6 +98,11 @@ describe('parseArgs', () => {
       quiet: false,
     });
   });
+
+  it('--config sets configPath', () => {
+    const options = parseArgs(['--config', '/path/to/config.json']);
+    expect(options.configPath).toBe('/path/to/config.json');
+  });
 });
 
 describe('run', () => {
@@ -258,6 +263,53 @@ describe('run', () => {
     expect(stderrOutput).toMatch(/not found|error|no such/i);
     expect(mockExit).toHaveBeenCalledWith(1);
     mockExit.mockRestore();
+  });
+
+  it('run loads config and uses config values for paths', async () => {
+    const tasksPath = join(tempDir, 'custom-tasks.md');
+    const outputPath = join(tempDir, 'custom-report.md');
+    await fsWriteFile(tasksPath, VALID_TASKS_CONTENT, 'utf-8');
+
+    const configPath = join(tempDir, '.coworkrc.json');
+    await fsWriteFile(configPath, JSON.stringify({
+      tasksPath,
+      outputPath,
+    }), 'utf-8');
+
+    // Use default paths in CLI options (so config values take precedence)
+    await run(makeOptions({ configPath, tasksPath: './TASKS.md', outputPath: './MORNING_REPORT.md' }));
+
+    const reportContent = await fsReadFile(outputPath, 'utf-8');
+    expect(reportContent).toContain('Overnight Session Report');
+  });
+
+  it('CLI flags override config file values', async () => {
+    const configTasksPath = join(tempDir, 'config-tasks.md');
+    const cliTasksPath = join(tempDir, 'cli-tasks.md');
+    const outputPath = join(tempDir, 'report.md');
+    await fsWriteFile(configTasksPath, VALID_TASKS_CONTENT, 'utf-8');
+    await fsWriteFile(cliTasksPath, VALID_TASKS_CONTENT, 'utf-8');
+
+    const configPath = join(tempDir, '.coworkrc.json');
+    await fsWriteFile(configPath, JSON.stringify({
+      tasksPath: configTasksPath,
+      outputPath: join(tempDir, 'config-report.md'),
+    }), 'utf-8');
+
+    // CLI flag --tasks and --output should override config
+    await run(makeOptions({ configPath, tasksPath: cliTasksPath, outputPath }));
+
+    const reportContent = await fsReadFile(outputPath, 'utf-8');
+    expect(reportContent).toContain('Overnight Session Report');
+
+    // The config-report.md should NOT have been written
+    let configReportExists = true;
+    try {
+      await fsReadFile(join(tempDir, 'config-report.md'), 'utf-8');
+    } catch {
+      configReportExists = false;
+    }
+    expect(configReportExists).toBe(false);
   });
 });
 

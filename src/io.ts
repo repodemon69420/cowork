@@ -1,5 +1,6 @@
 import { readFile as fsReadFile, writeFile as fsWriteFile, mkdir, access } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { FileNotFoundError } from './errors.js';
 
 /**
  * Reads a UTF-8 file at the given path.
@@ -10,7 +11,7 @@ export async function readFile(path: string): Promise<string> {
     return await fsReadFile(path, 'utf-8');
   } catch (error: unknown) {
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-      throw new Error(`File not found: ${path}`);
+      throw new FileNotFoundError(path);
     }
     throw error;
   }

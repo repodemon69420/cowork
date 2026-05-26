@@ -1,4 +1,5 @@
 export { Task, TaskStatus, TaskPriority, TaskType, ExecutionBatch, SessionResult } from './types.js';
+export { CoworkError, FileNotFoundError, TaskValidationError, ExecutionError, ConfigError } from './errors.js';
 export { parseTasksFile } from './parser.js';
 export { buildExecutionPlan } from './scheduler.js';
 export { generateReport, formatTaskSection } from './reporter.js';

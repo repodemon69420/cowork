@@ -5,6 +5,7 @@ import { readFile, writeFile } from './io.js';
 import { validateTasks, detectCycles } from './validator.js';
 import { executePlan } from './executor.js';
 import { updateTaskStatus } from './writer.js';
+import { loadConfig, mergeWithCliOptions } from './config.js';
 import type { TaskRunner } from './executor.js';
 import type { ExecutionBatch, SessionResult, Task } from './types.js';
 
@@ -15,6 +16,7 @@ export interface CliOptions {
   validate: boolean;
   help: boolean;
   quiet: boolean;
+  configPath?: string;
 }
 
 export function parseArgs(args: string[]): CliOptions {
@@ -50,6 +52,10 @@ export function parseArgs(args: string[]): CliOptions {
       case '--quiet':
         options.quiet = true;
         break;
+      case '--config':
+        i++;
+        options.configPath = args[i];
+        break;
     }
   }
 
@@ -62,6 +68,7 @@ function printUsage(): void {
 Usage: cowork [options]
 
 Options:
+  --config <path>   Path to config file (default: .coworkrc.json)
   --tasks <path>    Path to tasks file (default: ./TASKS.md)
   --output <path>   Path for report output (default: ./MORNING_REPORT.md)
   --dry-run         Show execution plan without writing any files
@@ -138,12 +145,37 @@ function printProgress(batches: ExecutionBatch[], result: SessionResult): void {
   process.stdout.write(`\n${formatSummary(result)}\n`);
 }
 
+async function executeAndWrite(
+  content: string, batches: ExecutionBatch[], tasksPath: string, outputPath: string, quiet: boolean,
+): Promise<void> {
+  const defaultRunner: TaskRunner = async () => 'completed';
+  const sessionResult = await executePlan(batches, defaultRunner);
+
+  if (!quiet) { printProgress(batches, sessionResult); }
+
+  let updatedContent = content;
+  for (const task of sessionResult.completed) {
+    updatedContent = updateTaskStatus(updatedContent, task.title, 'completed');
+  }
+  for (const task of sessionResult.failed) {
+    updatedContent = updateTaskStatus(updatedContent, task.title, 'failed');
+  }
+  await writeFile(tasksPath, updatedContent);
+
+  const report = generateReport(sessionResult, []);
+  await writeFile(outputPath, report);
+  process.stdout.write(`Report written to ${outputPath}\n`);
+}
+
 export async function run(options: CliOptions): Promise<void> {
   if (options.help) { printUsage(); return; }
 
+  const config = await loadConfig(options.configPath);
+  const mergedConfig = mergeWithCliOptions(config, options);
+
   let content: string;
   try {
-    content = await readFile(options.tasksPath);
+    content = await readFile(mergedConfig.tasksPath);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`Error: ${message}\n`);
@@ -156,23 +188,7 @@ export async function run(options: CliOptions): Promise<void> {
   const batches = buildExecutionPlan(tasks);
   if (options.dryRun) { printExecutionPlan(batches); return; }
 
-  const defaultRunner: TaskRunner = async () => 'completed';
-  const sessionResult = await executePlan(batches, defaultRunner);
-
-  if (!options.quiet) { printProgress(batches, sessionResult); }
-
-  let updatedContent = content;
-  for (const task of sessionResult.completed) {
-    updatedContent = updateTaskStatus(updatedContent, task.title, 'completed');
-  }
-  for (const task of sessionResult.failed) {
-    updatedContent = updateTaskStatus(updatedContent, task.title, 'failed');
-  }
-  await writeFile(options.tasksPath, updatedContent);
-
-  const report = generateReport(sessionResult, []);
-  await writeFile(options.outputPath, report);
-  process.stdout.write(`Report written to ${options.outputPath}\n`);
+  await executeAndWrite(content, batches, mergedConfig.tasksPath, mergedConfig.outputPath, options.quiet);
 }
 
 export async function main(): Promise<void> {
