@@ -14,3 +14,40 @@
 **Depends on:** Scaffold the project structure
 
 ---
+
+## [x] Create file I/O module
+**Priority:** high
+**Type:** code
+**Context:** Create src/io.ts with readFile, writeFile, fileExists functions using Node.js fs/promises. Write tests in src/io.test.ts.
+
+---
+
+## [x] Create task serializer
+**Priority:** high
+**Type:** code
+**Context:** Create src/writer.ts — inverse of parser. serializeTasks, updateTaskStatus, appendTasks. Write tests in src/writer.test.ts.
+
+---
+
+## [x] Create input validator
+**Priority:** medium
+**Type:** code
+**Context:** Create src/validator.ts with validateTasks and detectCycles. Write tests in src/validator.test.ts.
+
+---
+
+## [x] Create CLI entry point
+**Priority:** high
+**Type:** code
+**Context:** Create src/cli.ts as main executable. Parse args, wire pipeline. Write tests in src/cli.test.ts.
+**Depends on:** Create file I/O module, Create task serializer, Create input validator
+
+---
+
+## [x] Add end-to-end CLI integration tests
+**Priority:** medium
+**Type:** test
+**Context:** Create src/cli-integration.test.ts testing the full CLI pipeline with real files.
+**Depends on:** Create CLI entry point
+
+---

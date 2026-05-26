@@ -4,6 +4,25 @@
 
 ---
 
+## Iteration 3 — File I/O, Task Serializer, Validator, CLI, Integration Tests
+**Status:** PASSED
+**Tasks:** 5 completed (3 parallel batch + 1 sequential + 1 sequential)
+**Tests:** 124 pass, 0 fail (62 new tests added)
+**Coverage:** 95.7% statements overall, all source files >= 80%
+**Quality Gate:** PASSED (all criteria met)
+
+**Changes:**
+- Created src/io.ts — async file read/write/exists with error handling (9 tests)
+- Created src/writer.ts — serialize tasks to markdown, update status, append tasks (14 tests)
+- Created src/validator.ts — validate task structure, detect dependency cycles via DFS (16 tests)
+- Created src/cli.ts — CLI entry point with --tasks, --output, --dry-run, --validate, --help (13 tests)
+- Created src/cli-integration.test.ts — 10 end-to-end tests with real file I/O
+- Refactored cli.ts run() from 79 lines to 34 lines by extracting helpers
+- Added @types/node devDependency for TypeScript node: module resolution
+- Added "bin" entry in package.json pointing to dist/cli.js
+
+---
+
 ## Iteration 2 — Write unit tests for core utilities
 **Status:** PASSED
 **Task:** Write unit tests for core utilities

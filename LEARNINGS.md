@@ -4,6 +4,17 @@
 
 ---
 
+## Session 2026-05-26
+
+1. **@types/node required for node: imports**: TypeScript needs `@types/node` installed to resolve `node:fs/promises`, `node:path`, etc. Tests pass without it (Vitest handles it), but `tsc --noEmit` fails. Install it early.
+2. **Parallel batch execution**: Three independent modules (io, writer, validator) were implemented simultaneously by separate agents — ~3x throughput vs serial.
+3. **process.exit in testable code**: Functions that call `process.exit()` need special test handling — mock with `vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('process.exit'); } as never)` and catch in tests.
+4. **Function length enforcement matters**: The `run` function naturally grew to 79 lines as features accumulated. Extract helpers proactively — validation, display, and core logic are natural split points.
+5. **Round-trip testing**: Testing `parseTasksFile(serializeTasks(tasks))` catches subtle serialization bugs that unit tests miss. Always test codec pairs with round-trips.
+6. **Type annotation on mock functions**: Avoid explicit return type annotations on `vi.spyOn` wrappers — TypeScript infers complex generic types that are hard to satisfy. Let inference handle it.
+
+---
+
 ## Session 2026-05-16
 
 1. **Regex field parsing**: When parsing markdown fields, support both formats (`**Field:** value` and `- **Field:** value`) since users may not be consistent. Make the leading dash optional.
