@@ -4,6 +4,23 @@
 
 ---
 
+## Iteration 5 — Config, Logger, Git Utils, --config Flag, Custom Errors
+**Status:** PASSED
+**Tasks:** 5 completed (3 parallel batch + 2 parallel batch)
+**Tests:** 202 pass, 0 fail (58 new tests)
+**Coverage:** 96.41% statements overall
+**Quality Gate:** PASSED (all criteria met)
+
+**Changes:**
+- Created src/config.ts — load .coworkrc.json, merge with defaults and CLI options (9 tests)
+- Created src/logger.ts — structured logging with level filtering and quiet mode (10 tests)
+- Created src/git.ts — safe git operations via execFile with cwd support (9 tests)
+- Added --config flag to CLI, config file precedence system (3 tests)
+- Created src/errors.ts — CoworkError hierarchy with error codes (27 tests)
+- Updated io.ts to throw FileNotFoundError instead of generic Error
+
+---
+
 ## Iteration 4 — Executor, Build Config, ESLint, CLI Wiring, Progress Output
 **Status:** PASSED
 **Tasks:** 5 completed (3 parallel batch + 2 sequential)

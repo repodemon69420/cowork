@@ -15,6 +15,9 @@
 7. **TaskRunner abstraction**: Using a function type `(task: Task) => Promise<TaskStatus>` as a strategy pattern lets the executor be tested with simple stubs while supporting real agent execution later.
 8. **tsconfig.build.json**: Always create a separate build config that excludes test files — the default tsconfig.json should include tests for IDE support but production builds should be clean.
 9. **Build verification tests**: A test that runs `tsc --noEmit` via child_process catches import/export issues that IDE type-checking might miss, especially around ESM module resolution.
+10. **Custom error hierarchy**: Extending Error with typed subclasses (FileNotFoundError, ConfigError) lets consumers do `instanceof` checks without string-matching. Always set `this.name` in the constructor for correct stack traces.
+11. **Config precedence chain**: defaults < config file < CLI flags is the standard pattern. Implement by spread-merging: `{ ...defaults, ...configFile, ...cliOverrides }`, but only include CLI values that differ from defaults.
+12. **Git operations in tests**: Always use `execFile` with `cwd` parameter for git helpers, and initialize temp repos with `git config user.name/email` for commits to work in CI environments without global git config.
 
 ---
 

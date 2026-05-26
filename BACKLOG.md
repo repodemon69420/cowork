@@ -88,3 +88,40 @@
 **Depends on:** Wire executor into CLI for full pipeline
 
 ---
+
+## [x] Create configuration module
+**Priority:** high
+**Type:** code
+**Context:** src/config.ts — load .coworkrc.json, merge with defaults and CLI options.
+
+---
+
+## [x] Create structured logger module
+**Priority:** medium
+**Type:** code
+**Context:** src/logger.ts — info/warn/error/debug with level filtering and quiet mode.
+
+---
+
+## [x] Create git utilities module
+**Priority:** medium
+**Type:** code
+**Context:** src/git.ts — getCurrentBranch, createBranch, commitAll, getRecentCommits.
+
+---
+
+## [x] Add --config flag and config loading to CLI
+**Priority:** high
+**Type:** code
+**Context:** Wire config module into CLI, --config flag, config file precedence.
+**Depends on:** Create configuration module
+
+---
+
+## [x] Improve error handling with custom error types
+**Priority:** low
+**Type:** refactor
+**Context:** src/errors.ts — CoworkError hierarchy, update io/validator/cli.
+**Depends on:** Create configuration module
+
+---

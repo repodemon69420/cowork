@@ -95,3 +95,39 @@
 **Depends on:** Wire executor into CLI for full pipeline
 
 ---
+
+## [x] Create configuration module
+**Priority:** high
+**Type:** code
+**Context:** Create src/config.ts that loads configuration from a `.coworkrc.json` file (if it exists) with fallback defaults. The Config interface should have: tasksPath (default: "./TASKS.md"), outputPath (default: "./MORNING_REPORT.md"), coverageThreshold (default: 80), maxFileLines (default: 800), maxFunctionLines (default: 50), parallel (default: true). Functions: (1) loadConfig(configPath?: string) → Promise<Config> that reads `.coworkrc.json` from the given path or the current directory, merges with defaults using spread operator, (2) mergeWithCliOptions(config: Config, cliOptions: CliOptions) → Config that lets CLI flags override config file values (CLI takes precedence). Write tests in src/config.test.ts using temp files. Test: loading default config, loading from file, missing file uses defaults, CLI overrides, partial config merges correctly.
+
+---
+
+## [x] Create structured logger module
+**Priority:** medium
+**Type:** code
+**Context:** Create src/logger.ts with a simple structured logger. The Logger interface should have methods: info(message: string, data?: Record<string, unknown>), warn(message: string, data?: Record<string, unknown>), error(message: string, data?: Record<string, unknown>), debug(message: string, data?: Record<string, unknown>). Create a createLogger(options: { level: 'debug' | 'info' | 'warn' | 'error', quiet?: boolean }) function that returns a Logger. Output format: "[LEVEL] message" with optional JSON data on the same line. When quiet is true, only error level outputs. Write tests in src/logger.test.ts that capture stdout/stderr output and verify formatting and level filtering.
+
+---
+
+## [x] Create git utilities module
+**Priority:** medium
+**Type:** code
+**Context:** Create src/git.ts with helper functions for git operations used by the orchestrator. Functions: (1) getCurrentBranch() → Promise<string> that runs `git rev-parse --abbrev-ref HEAD`, (2) createBranch(name: string) → Promise<void> that runs `git checkout -b <name>`, (3) commitAll(message: string) → Promise<string> that stages all changes and commits, returning the commit hash, (4) getRecentCommits(count: number) → Promise<string[]> that returns the last N commit messages. All functions should use child_process.execFile (not exec) to avoid shell injection. Wrap in try/catch with descriptive errors. Write tests in src/git.test.ts — use a temp directory with `git init` to create isolated test repos. Test each function including error cases (not a git repo, nothing to commit).
+
+---
+
+## [x] Add --config flag and config loading to CLI
+**Priority:** high
+**Type:** code
+**Context:** Update src/cli.ts to support a --config <path> flag. On startup, load config using loadConfig from src/config.ts, then merge with CLI options using mergeWithCliOptions. This means the CLI respects: (1) defaults, (2) config file values, (3) CLI flags (highest priority). Update parseArgs to include configPath. Update the run function to load config before executing. Update tests to cover config integration. Keep the run function under 50 lines — extract a loadAndMergeConfig helper if needed.
+**Depends on:** Create configuration module
+
+---
+
+## [x] Improve error handling with custom error types
+**Priority:** low
+**Type:** refactor
+**Context:** Create src/errors.ts with custom error classes: CoworkError (base), FileNotFoundError (extends CoworkError), ValidationError (extends CoworkError), ExecutionError (extends CoworkError), ConfigError (extends CoworkError). Each error class should have a `code` property (string enum like 'FILE_NOT_FOUND', 'VALIDATION_FAILED', etc.) for programmatic error handling. Update io.ts to throw FileNotFoundError instead of generic Error. Update validator.ts to include a method that throws ValidationError when validation fails. Update cli.ts error handling to check error types and show appropriate messages. Write tests in src/errors.test.ts for error hierarchy and instanceof checks.
+
+---
