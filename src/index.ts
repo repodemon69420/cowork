@@ -7,3 +7,6 @@ export { serializeTasks, updateTaskStatus, appendTasks } from './writer.js';
 export { validateTasks, detectCycles, ValidationError, ValidationResult } from './validator.js';
 export { parseArgs, run, CliOptions } from './cli.js';
 export { executeTask, executeBatch, executePlan, TaskRunner } from './executor.js';
+export { createLogger, LogLevel, LoggerOptions, Logger } from './logger.js';
+export { Config, getDefaultConfig, loadConfig, mergeWithCliOptions } from './config.js';
+export { getCurrentBranch, createBranch, commitAll, getRecentCommits, hasUncommittedChanges } from './git.js';
