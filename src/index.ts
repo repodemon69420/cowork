@@ -6,3 +6,4 @@ export { readFile, writeFile, fileExists } from './io.js';
 export { serializeTasks, updateTaskStatus, appendTasks } from './writer.js';
 export { validateTasks, detectCycles, ValidationError, ValidationResult } from './validator.js';
 export { parseArgs, run, CliOptions } from './cli.js';
+export { executeTask, executeBatch, executePlan, TaskRunner } from './executor.js';
