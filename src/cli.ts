@@ -6,7 +6,7 @@ import { validateTasks, detectCycles } from './validator.js';
 import { executePlan } from './executor.js';
 import { updateTaskStatus } from './writer.js';
 import type { TaskRunner } from './executor.js';
-import type { ExecutionBatch, Task } from './types.js';
+import type { ExecutionBatch, SessionResult, Task } from './types.js';
 
 export interface CliOptions {
   tasksPath: string;
@@ -14,6 +14,7 @@ export interface CliOptions {
   dryRun: boolean;
   validate: boolean;
   help: boolean;
+  quiet: boolean;
 }
 
 export function parseArgs(args: string[]): CliOptions {
@@ -23,6 +24,7 @@ export function parseArgs(args: string[]): CliOptions {
     dryRun: false,
     validate: false,
     help: false,
+    quiet: false,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -45,6 +47,9 @@ export function parseArgs(args: string[]): CliOptions {
       case '--help':
         options.help = true;
         break;
+      case '--quiet':
+        options.quiet = true;
+        break;
     }
   }
 
@@ -61,6 +66,7 @@ Options:
   --output <path>   Path for report output (default: ./MORNING_REPORT.md)
   --dry-run         Show execution plan without writing any files
   --validate        Validate tasks and report errors, then exit
+  --quiet           Suppress progress output; only print the report path
   --help            Show this help message and exit
 `;
   process.stdout.write(usage);
@@ -106,11 +112,34 @@ function printExecutionPlan(batches: ExecutionBatch[]): void {
   }
 }
 
-export async function run(options: CliOptions): Promise<void> {
-  if (options.help) {
-    printUsage();
-    return;
+export function formatSummary(result: SessionResult): string {
+  const elapsed = result.endTime.getTime() - result.startTime.getTime();
+  const totalSeconds = Math.floor(elapsed / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const time = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+  return `Summary: ${result.completed.length} completed, ${result.failed.length} failed, ${result.skipped.length} skipped (${time})`;
+}
+
+function printProgress(batches: ExecutionBatch[], result: SessionResult): void {
+  const allResults = [...result.completed, ...result.failed, ...result.skipped];
+  let taskIndex = 0;
+  for (let i = 0; i < batches.length; i++) {
+    const batch = batches[i];
+    const mode = batch.parallel ? 'parallel' : 'sequential';
+    process.stdout.write(`Executing batch ${i + 1}/${batches.length} (${mode})...\n`);
+    for (const _task of batch.tasks) {
+      const finished = allResults[taskIndex];
+      const tag = finished?.status === 'completed' ? 'DONE' : finished?.status === 'failed' ? 'FAIL' : 'SKIP';
+      process.stdout.write(`  [${tag}] ${finished?.title ?? _task.title}\n`);
+      taskIndex++;
+    }
   }
+  process.stdout.write(`\n${formatSummary(result)}\n`);
+}
+
+export async function run(options: CliOptions): Promise<void> {
+  if (options.help) { printUsage(); return; }
 
   let content: string;
   try {
@@ -122,22 +151,16 @@ export async function run(options: CliOptions): Promise<void> {
   }
 
   const tasks = parseTasksFile(content);
-
   if (options.validate) { runValidation(tasks); return; }
 
   const batches = buildExecutionPlan(tasks);
-
   if (options.dryRun) { printExecutionPlan(batches); return; }
 
-  // Default runner: marks tasks as completed immediately
-  // (In a real system, this would spawn agents or run commands)
   const defaultRunner: TaskRunner = async () => 'completed';
+  const sessionResult = await executePlan(batches, defaultRunner);
 
-  const sessionResult = await executePlan(batches, defaultRunner, (completed, total) => {
-    process.stdout.write(`Progress: ${completed}/${total} tasks\n`);
-  });
+  if (!options.quiet) { printProgress(batches, sessionResult); }
 
-  // Update TASKS.md with new statuses
   let updatedContent = content;
   for (const task of sessionResult.completed) {
     updatedContent = updateTaskStatus(updatedContent, task.title, 'completed');
@@ -147,7 +170,6 @@ export async function run(options: CliOptions): Promise<void> {
   }
   await writeFile(options.tasksPath, updatedContent);
 
-  // Generate and write the report
   const report = generateReport(sessionResult, []);
   await writeFile(options.outputPath, report);
   process.stdout.write(`Report written to ${options.outputPath}\n`);

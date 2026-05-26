@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtemp, rm, writeFile as fsWriteFile, readFile as fsReadFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseArgs, run, CliOptions } from './cli.js';
+import { parseArgs, run, CliOptions, formatSummary } from './cli.js';
 
 const VALID_TASKS_CONTENT = `# Nightly Task Queue
 
@@ -47,6 +47,7 @@ describe('parseArgs', () => {
       dryRun: false,
       validate: false,
       help: false,
+      quiet: false,
     });
   });
 
@@ -75,6 +76,11 @@ describe('parseArgs', () => {
     expect(options.help).toBe(true);
   });
 
+  it('--quiet sets quiet to true', () => {
+    const options = parseArgs(['--quiet']);
+    expect(options.quiet).toBe(true);
+  });
+
   it('handles multiple flags combined', () => {
     const options = parseArgs([
       '--tasks', 'my-tasks.md',
@@ -89,6 +95,7 @@ describe('parseArgs', () => {
       dryRun: true,
       validate: true,
       help: true,
+      quiet: false,
     });
   });
 });
@@ -127,6 +134,7 @@ describe('run', () => {
       dryRun: false,
       validate: false,
       help: false,
+      quiet: false,
       ...overrides,
     };
   }
@@ -137,6 +145,7 @@ describe('run', () => {
     expect(stdoutOutput).toContain('--output');
     expect(stdoutOutput).toContain('--dry-run');
     expect(stdoutOutput).toContain('--validate');
+    expect(stdoutOutput).toContain('--quiet');
     expect(stdoutOutput).toContain('--help');
   });
 
@@ -195,8 +204,42 @@ describe('run', () => {
     expect(updatedTasks).not.toContain('[ ] Write API docs');
 
     // Verify progress messages were printed
-    expect(stdoutOutput).toContain('Progress:');
-    expect(stdoutOutput).toMatch(/Progress: \d+\/\d+ tasks/);
+    expect(stdoutOutput).toMatch(/Executing batch \d+\/\d+/);
+    expect(stdoutOutput).toContain('[DONE]');
+    expect(stdoutOutput).toMatch(/Summary: \d+ completed/);
+  });
+
+  it('quiet mode suppresses progress but still writes report', async () => {
+    const tasksPath = join(tempDir, 'TASKS.md');
+    const outputPath = join(tempDir, 'MORNING_REPORT.md');
+    await fsWriteFile(tasksPath, VALID_TASKS_CONTENT, 'utf-8');
+
+    await run(makeOptions({ tasksPath, outputPath, quiet: true }));
+
+    const reportContent = await fsReadFile(outputPath, 'utf-8');
+    expect(reportContent).toContain('Overnight Session Report');
+
+    // Quiet mode should NOT print batch progress or summary
+    expect(stdoutOutput).not.toMatch(/Executing batch/);
+    expect(stdoutOutput).not.toContain('[DONE]');
+    expect(stdoutOutput).not.toMatch(/Summary:/);
+
+    // But should still print the report path
+    expect(stdoutOutput).toContain('Report written to');
+  });
+
+  it('normal mode shows batch headers and task results', async () => {
+    const tasksPath = join(tempDir, 'TASKS.md');
+    const outputPath = join(tempDir, 'MORNING_REPORT.md');
+    await fsWriteFile(tasksPath, VALID_TASKS_CONTENT, 'utf-8');
+
+    await run(makeOptions({ tasksPath, outputPath }));
+
+    expect(stdoutOutput).toContain('Executing batch 1/');
+    expect(stdoutOutput).toContain('[DONE] Set up database');
+    expect(stdoutOutput).toContain('[DONE] Write API docs');
+    expect(stdoutOutput).toMatch(/Summary: 2 completed, 0 failed, 0 skipped/);
+    expect(stdoutOutput).toContain('Report written to');
   });
 
   it('handles missing tasks file with error message', async () => {
@@ -215,5 +258,33 @@ describe('run', () => {
     expect(stderrOutput).toMatch(/not found|error|no such/i);
     expect(mockExit).toHaveBeenCalledWith(1);
     mockExit.mockRestore();
+  });
+});
+
+describe('formatSummary', () => {
+  it('formats completed/failed/skipped counts and elapsed time', () => {
+    const start = new Date('2026-01-01T00:00:00Z');
+    const end = new Date('2026-01-01T00:02:30Z');
+    const result = {
+      completed: [{ title: 'A', priority: 'high' as const, type: 'code' as const, context: '', status: 'completed' as const }],
+      failed: [{ title: 'B', priority: 'medium' as const, type: 'code' as const, context: '', status: 'failed' as const }],
+      skipped: [],
+      startTime: start,
+      endTime: end,
+    };
+    expect(formatSummary(result)).toBe('Summary: 1 completed, 1 failed, 0 skipped (2m 30s)');
+  });
+
+  it('shows seconds only when under a minute', () => {
+    const start = new Date('2026-01-01T00:00:00Z');
+    const end = new Date('2026-01-01T00:00:45Z');
+    const result = {
+      completed: [],
+      failed: [],
+      skipped: [],
+      startTime: start,
+      endTime: end,
+    };
+    expect(formatSummary(result)).toBe('Summary: 0 completed, 0 failed, 0 skipped (45s)');
   });
 });
