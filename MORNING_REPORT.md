@@ -1,49 +1,43 @@
-# Morning Report — 2026-05-16
+# Morning Report — 2026-05-27
 
 ## Summary
-- **Tasks completed:** 2 / 2
-- **Tasks failed:** 0
-- **Iterations:** 2
+- **Tasks completed:** 1 (maintenance fix)
+- **Backlog items remaining:** 0
+- **Iterations this session:** 1 (Iteration 3 overall)
 - **Tests:** 62 passing, 100% coverage on logic modules
-- **Commits:** 3 (including this report)
+- **Stop condition:** Backlog empty — no remaining `[ ]` items
 
-## Completed Tasks
+## Session Overview
 
-### Scaffold the project structure
-**Status:** Completed
-**Files changed:** package.json, tsconfig.json, eslint.config.js, vitest.config.ts, .gitignore, src/types.ts, src/parser.ts, src/scheduler.ts, src/reporter.ts, src/index.ts
-- Set up TypeScript Node.js project (ES2022, NodeNext, strict mode)
-- Created core modules: task parser (TASKS.md → Task[]), execution scheduler (dependency-aware parallel batching), and report generator (session results → markdown)
-- Configured Vitest with v8 coverage (80% threshold), ESLint with @typescript-eslint
+The SDLC loop started with all backlog items already completed from the previous session (2026-05-16). However, running the full quality gate revealed **two pre-existing build failures** that shipped previously:
 
-### Write unit tests for core utilities
-**Status:** Completed
-**Files changed:** src/parser.test.ts, src/scheduler.test.ts, src/reporter.test.ts, src/integration.test.ts
-- 47 unit tests covering parser, scheduler, and reporter individually
-- 15 integration tests covering the full pipeline end-to-end
-- Edge cases: unicode, long strings, all-failed/all-completed scenarios, missing dependencies, real TASKS.md parsing
+1. `tsc --noEmit` failed — missing `@types/node` for `node:fs`, `node:path`, `node:url` imports in integration tests
+2. `eslint src/` failed — unused `formatTaskSection` static import in integration.test.ts
 
-## Failed Tasks
-None.
+Both issues were fixed in Iteration 3.
 
-## Skipped Tasks
-None.
+## Iteration 3 — Fix TypeScript compilation and lint errors
 
-## Commits
-- `b176b58` feat: [sdlc] scaffold project structure with TypeScript, tests, and tooling
-- `43be820` feat: [sdlc] add integration tests — 100% coverage on all logic modules
+**Status:** PASSED
+
+**Changes:**
+- Added `@types/node` as dev dependency → `tsc --noEmit` now passes
+- Removed unused static import of `formatTaskSection` in integration.test.ts → `eslint src/` now passes
+- All 62 tests continue to pass with 100% coverage
 
 ## Quality Metrics
 | Metric | Target | Actual |
 |--------|--------|--------|
 | Tests passing | 100% | 62/62 (100%) |
-| Coverage (statements) | ≥80% | 100% |
-| Coverage (branches) | ≥80% | 100% |
-| Max file length | <800 lines | 299 lines |
+| Coverage (statements) | >=80% | 100% |
+| Coverage (branches) | >=80% | 100% |
+| TypeScript compilation | 0 errors | 0 errors |
+| ESLint | 0 errors | 0 errors |
+| Max file length | <800 lines | 465 lines |
 | Max function length | <50 lines | 42 lines |
 | CRITICAL issues | 0 | 0 |
 
-## Architecture
+## Architecture (unchanged)
 ```
 src/
 ├── types.ts          (27 lines)  — Type definitions
@@ -54,12 +48,16 @@ src/
 ├── parser.test.ts    (299 lines) — 20 unit tests
 ├── scheduler.test.ts (162 lines) — 13 unit tests
 ├── reporter.test.ts  (162 lines) — 14 unit tests
-└── integration.test.ts           — 15 integration tests
+└── integration.test.ts (465 lines) — 15 integration tests
 ```
 
-## Recommendations
-1. **Next tasks to queue:** Add a CLI entry point (`src/cli.ts`) that wires the modules together — reads TASKS.md, runs the scheduler, and writes the report
-2. **Consider adding:** A file-system adapter module for reading/writing TASKS.md and MORNING_REPORT.md (keeps core modules pure)
-3. **Linting:** Run `npx eslint src/` to verify lint compliance (not yet run in CI)
-4. **CI/CD:** Add a GitHub Actions workflow for test + typecheck on push
-5. **The parser** now handles both `**Field:** value` and `- **Field:** value` formats — keep this flexible pattern for future field additions
+## Recommendations for Next Session
+1. **Add a CLI entry point** (`src/cli.ts`) that wires modules together — reads TASKS.md, runs the scheduler, writes the report
+2. **Add a CI workflow** — GitHub Actions running `tsc --noEmit`, `eslint src/`, and `vitest run --coverage` on push
+3. **Add a file-system adapter** — keeps core modules pure by abstracting I/O
+4. **Consider adding a `--watch` mode** for development via `vitest --watch`
+
+## Learnings Added
+- Always install `@types/node` for Node.js projects using `node:` built-in modules
+- Run all three quality checks (tsc, eslint, vitest) — tests alone are insufficient
+- Remove unused static imports when dynamic imports cover the same symbols

@@ -4,6 +4,20 @@
 
 ---
 
+## Iteration 3 — Fix TypeScript compilation and lint errors
+**Status:** PASSED
+**Task:** Maintenance — fix pre-existing build failures
+**Tests:** 62 pass, 0 fail
+**Coverage:** 100% on all logic modules
+**Quality Gate:** PASSED (all criteria met)
+
+**Changes:**
+- Added `@types/node` dev dependency (fixes `tsc --noEmit` failure on `node:fs`, `node:path`, `node:url` imports)
+- Removed unused `formatTaskSection` static import in integration.test.ts (fixes ESLint error)
+- All three quality checks now pass: `tsc --noEmit`, `eslint src/`, `vitest run --coverage`
+
+---
+
 ## Iteration 2 — Write unit tests for core utilities
 **Status:** PASSED
 **Task:** Write unit tests for core utilities

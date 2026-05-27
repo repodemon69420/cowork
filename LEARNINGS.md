@@ -14,3 +14,11 @@
 6. **Real file system tests**: Reading actual project files (TASKS.md) in integration tests catches format drift between parser assumptions and actual file format.
 
 ---
+
+## Session 2026-05-27
+
+7. **Always install @types/node for Node.js projects**: If tests use `node:fs`, `node:path`, `node:url` or other Node built-ins, `@types/node` must be in devDependencies or `tsc --noEmit` will fail even though Vitest runs fine (Vitest resolves types differently).
+8. **Run all three quality checks**: Tests passing alone is insufficient — always run `tsc --noEmit` AND `eslint src/` alongside `vitest run`. A previous session shipped with passing tests but broken typecheck and lint.
+9. **Remove unused static imports when dynamic imports test re-exports**: Integration tests that verify barrel re-exports via `await import()` don't need the same symbols in static imports — ESLint will flag them.
+
+---
